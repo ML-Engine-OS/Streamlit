@@ -66,7 +66,7 @@ uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
 
 if uploaded_file is not None:
     try:
-        df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', error_bad_lines=False)
+        df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines=False)
         st.success(f"Fichier chargé avec succès : {df.shape[0]} lignes")
         st.dataframe(df.head())
         # suite du traitement...
