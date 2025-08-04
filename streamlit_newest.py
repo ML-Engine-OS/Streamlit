@@ -13,10 +13,14 @@ st.title("Tableau de bord avancé : Fiabilité ferroviaire")
 db_string = st.secrets["db_url"] if "db_url" in st.secrets else "postgresql+psycopg2://user:password@host:port/dbname"
 db_pgsql = create_engine(db_string)
 
-def load_data():
-    return pd.read_csv("donnees_relais.csv")
+uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
 
-df = load_data()
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    st.success(f"Fichier chargé avec succès : {df.shape[0]} lignes")
+    st.dataframe(df.head())
+else:
+    st.info("Veuillez uploader un fichier pour commencer.")
 # ---------------- Interface utilisateur ----------------
 st.sidebar.subheader("Chargement des données")
 symb = st.sidebar.text_input("Symbole", "79540230")
