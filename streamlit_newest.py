@@ -38,22 +38,10 @@ if uploaded_file is not None:
         st.dataframe(df.head())
 
         # Sidebar : filtres basés sur le DataFrame uploadé
-        st.sidebar.subheader("Filtres")
-
-
-        constructeurs = st.sidebar.multiselect("Constructeurs", options=df['lib_constr'].dropna().unique(), default=df['lib_constr'].dropna().unique())
-       
+        st.sidebar.subheader("Filtres")       
 
         n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=10000, value=100)
 
-        # Filtrage des données
-        if len(constructeurs) > 0:
-            df_filtered = df[df['lib_constr'].isin(constructeurs)]
-        else:
-            df_filtered = df.copy()
-
-        df_filtered = df_filtered.head(n_relais)
-        st.dataframe(df_filtered)
 
         # === ANALYSES (sans condition) ===
 
