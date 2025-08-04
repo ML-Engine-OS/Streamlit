@@ -31,6 +31,8 @@ if uploaded_file is not None:
     try:
         df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
         st.success(f"Fichier chargé avec succès : {df.shape[0]} lignes")
+        st.write("Colonnes disponibles dans le CSV :", df.columns.tolist())
+
 
         # Sidebar : filtres basés sur le DataFrame uploadé
         st.sidebar.subheader("Filtres")
