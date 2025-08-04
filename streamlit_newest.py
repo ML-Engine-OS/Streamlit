@@ -38,7 +38,6 @@ def load_data(uploaded_file=None):
             return None
     return None
 
-import io
 
 uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
 
@@ -53,31 +52,30 @@ if uploaded_file is not None:
     # Lire avec pandas depuis la chaîne nettoyée
     df = pd.read_csv(io.StringIO(data), sep=',', encoding='utf-8', on_bad_lines='skip')
 
-    st.write("Colonnes:", df.columns.tolist())
-        
-        # Vérifier présence colonne DTETAT
-        if 'DTETAT' in df.columns:
-            df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
-            now = pd.Timestamp.today()
-            df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
-            df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
+    # Afficher colonnes nettoyées
+    st.write("Colonnes nettoyées :", df.columns.tolist())
+# Vérifier présence colonne DTETAT
+    if 'DTETAT' in df.columns:
+        df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
+        now = pd.Timestamp.today()
+        df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
+        df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
             
-            if 'censure' in df.columns:
-                df = df[df["censure"].isin([0, 1])]
-                df["censure"] = df["censure"].astype(int)
-            else:
-                st.warning("Colonne 'censure' absente dans le fichier.")
-            
-            st.success(f"Data chargée avec {df.shape[0]} lignes")
-            st.dataframe(df.head())
+        if 'censure' in df.columns:
+            df = df[df["censure"].isin([0, 1])]
+            df["censure"] = df["censure"].astype(int)
         else:
-            st.error("La colonne 'DTETAT' est absente dans le fichier.")
-        
-    except Exception as e:
-        st.error(f"Erreur lecture fichier uploadé : {e}")
+            st.warning("Colonne 'censure' absente dans le fichier.")
+            
+        st.success(f"Data chargée avec {df.shape[0]} lignes")
+        st.dataframe(df.head())
+    else:
+        st.error("La colonne 'DTETAT' est absente dans le fichier.")
+
 else:
     st.warning("Aucun fichier chargé.")
-
+        
+        
 st.title("🚀 Futuristic Survival Analysis Dashboard")
 
 model_choice = st.sidebar.selectbox(
