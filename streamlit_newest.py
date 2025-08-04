@@ -43,23 +43,24 @@ uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
 
 if uploaded_file is not None:
     try:
-        # Lire le CSV normalement (virgule séparateur)
-        df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
-        # Vérifier présence colonne DTETAT
         if 'DTETAT' in df.columns:
-            df['DTETAT'] = pd.to_datetime(df['DTETAT'], errors="coerce", format="%Y-%m-%d", exact=False)
+            df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
             now = pd.Timestamp.today()
             df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
             df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
-            
-            if 'censure;;' in df.columns:
+
+            if 'censure' in df.columns:
                 df = df[df["censure"].isin([0, 1])]
                 df["censure"] = df["censure"].astype(int)
             else:
-                st.warning('Colonne "censure" absente dans le fichier.')
+                st.warning("Colonne 'censure' absente dans le fichier.")
             
             st.success(f"Data chargée avec {df.shape[0]} lignes")
             st.dataframe(df.head())
+
+            n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=10000, value=100)
+            df = df.head(n_relais))
+            
         else:
             st.error("La colonne 'DTETAT' est absente dans le fichier.")
         
