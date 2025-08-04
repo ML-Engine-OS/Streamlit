@@ -25,7 +25,6 @@ warnings.filterwarnings("ignore")
 st.set_page_config(layout="wide", page_title="Survie ferroviaire avancée")
 st.title("Tableau de bord avancé : Fiabilité ferroviaire")
 
-
 uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
 
 if uploaded_file is not None:
@@ -39,7 +38,10 @@ if uploaded_file is not None:
         # Constructeurs dynamiques selon df
         if 'lib_constr' in df.columns:
             constructeurs = st.sidebar.multiselect(
-                "Constructeurs", options=df['lib_constr'].dropna().unique(), default=df['lib_constr'].dropna().unique())
+                "Constructeurs",
+                options=df['lib_constr'].dropna().unique(),
+                default=df['lib_constr'].dropna().unique()
+            )
         else:
             constructeurs = []
 
@@ -59,29 +61,21 @@ if uploaded_file is not None:
         # Vérification des colonnes nécessaires
         if "ACTIF" in df_filtered.columns and "censure" in df_filtered.columns:
             st.write("Les colonnes 'ACTIF' et 'censure' sont présentes. Analyse possible.")
-            # Ici tu peux lancer tes fonctions d'analyse, courbes, etc.
-        else:
-            st.warning("Les colonnes 'ACTIF' et 'censure' sont requises dans le fichier CSV.")
-
-    except Exception as e:
-        st.error(f"Erreur lors de la lecture du fichier CSV : {e}")
-else:
-    st.info("Veuillez uploader un fichier CSV pour commencer.")
-
-      
 
             # Weibull mixte par constructeur
             with st.expander("Weibull mixte par constructeur"):
-                for constr in df['lib_constr'].dropna().unique():
-                    subset = df[(df['lib_constr'] == constr) & (~df['ACTIF'].isna())]
+                for constr in df_filtered['lib_constr'].dropna().unique():
+                    subset = df_filtered[(df_filtered['lib_constr'] == constr) & (~df_filtered['ACTIF'].isna())]
                     failures = subset[subset['censure'] == 1]['ACTIF'].values
                     censored = subset[subset['censure'] == 0]['ACTIF'].values
                     if len(failures) > 20:
                         model = Fit_Weibull_Mixture(failures=failures, right_censored=censored, show_plot=False)
                         x_vals = np.linspace(0.1, 200, 1000)
                         total_pdf = np.zeros_like(x_vals)
-                        for beta, eta, prop in [(model.beta_1, model.alpha_1, model.proportion_1),
-                                                (model.beta_2, model.alpha_2, 1 - model.proportion_1)]:
+                        for beta, eta, prop in [
+                            (model.beta_1, model.alpha_1, model.proportion_1),
+                            (model.beta_2, model.alpha_2, 1 - model.proportion_1)
+                        ]:
                             pdf = (beta / eta) * (x_vals / eta) ** (beta - 1) * np.exp(-(x_vals / eta) ** beta)
                             total_pdf += prop * pdf
                         fig, ax = plt.subplots()
@@ -100,16 +94,24 @@ else:
                 true_event_time = np.minimum(age_meca, age_elec)
                 cause = np.where(age_meca < age_elec, 'mecanique', 'electrique')
                 censure = np.random.binomial(1, 0.2, size=n)
-                observed_time = np.where(censure == 0, true_event_time, true_event_time - np.random.uniform(0, 10, size=n))
+                observed_time = np.where(
+                    censure == 0,
+                    true_event_time,
+                    true_event_time - np.random.uniform(0, 10, size=n)
+                )
                 observed_time = np.clip(observed_time, 0.01, None)
                 df_comp = pd.DataFrame({"time": observed_time, "event": censure == 0, "cause": cause})
 
-                fm = WeibullFitter().fit(df_comp[df_comp["cause"] == "mecanique"]["time"],
-                                         event_observed=df_comp[df_comp["cause"] == "mecanique"]["event"],
-                                         label="Méca")
-                fe = WeibullFitter().fit(df_comp[df_comp["cause"] == "electrique"]["time"],
-                                         event_observed=df_comp[df_comp["cause"] == "electrique"]["event"],
-                                         label="Elec")
+                fm = WeibullFitter().fit(
+                    df_comp[df_comp["cause"] == "mecanique"]["time"],
+                    event_observed=df_comp[df_comp["cause"] == "mecanique"]["event"],
+                    label="Méca"
+                )
+                fe = WeibullFitter().fit(
+                    df_comp[df_comp["cause"] == "electrique"]["time"],
+                    event_observed=df_comp[df_comp["cause"] == "electrique"]["event"],
+                    label="Elec"
+                )
 
                 fig, ax = plt.subplots()
                 fm.plot_survival_function(ax=ax)
@@ -119,7 +121,7 @@ else:
 
             # Log-Normal : Modèle de survie
             with st.expander("Log-Normal : Modèle de survie"):
-                failures = df[df['censure'] == 1]['ACTIF']
+                failures = df_filtered[df_filtered['censure'] == 1]['ACTIF']
                 if len(failures) > 0:
                     model_ln = LogNormalFitter().fit(failures)
                     fig, ax = plt.subplots()
@@ -131,7 +133,7 @@ else:
 
             # Modèle de Cox Proportionnel
             with st.expander("Modèle de Cox Proportionnel"):
-                df_cox = df.copy()
+                df_cox = df_filtered.copy()
                 df_cox["event"] = df_cox["censure"] == 1
                 df_cox = df_cox.dropna(subset=["ACTIF"])
                 if len(df_cox) > 0:
@@ -146,9 +148,12 @@ else:
                         st.error(f"Erreur Cox PH : {e}")
                 else:
                     st.warning("Données insuffisantes pour le modèle Cox PH.")
+
         else:
             st.warning("Les colonnes 'ACTIF' et 'censure' sont requises dans le fichier CSV.")
+
     except Exception as e:
         st.error(f"Erreur lors de la lecture du fichier CSV : {e}")
+
 else:
     st.info("Veuillez uploader un fichier CSV pour commencer.")
