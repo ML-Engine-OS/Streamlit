@@ -62,13 +62,16 @@ st.set_page_config(layout="wide", page_title="Survie ferroviaire avancée")
 st.title("Tableau de bord avancé : Fiabilité ferroviaire")
 
 
-# --- Chargement fichier CSV ---
 uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
 
 if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    st.success(f"Fichier chargé avec succès : {df.shape[0]} lignes")
-    st.dataframe(df.head())
+    try:
+        df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8')
+        st.success(f"Fichier chargé avec succès : {df.shape[0]} lignes")
+        st.dataframe(df.head())
+        # suite du traitement...
+    except Exception as e:
+        st.error(f"Erreur lors de la lecture du fichier CSV : {e}")
 else:
     st.info("Veuillez uploader un fichier CSV pour commencer.")
 
