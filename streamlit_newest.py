@@ -29,14 +29,14 @@ st.title("Tableau de bord avancé : Fiabilité ferroviaire")
 
 @st.cache_data
 def load_data(uploaded_file=None):
-    if uploaded_file is not None:
-        try:
+    #if uploaded_file is not None:
+        #try:
             df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
             return df
-        except Exception as e:
-            st.error(f"Erreur lecture fichier uploadé : {e}")
-            return None
-    return None
+       # except Exception as e:
+            #st.error(f"Erreur lecture fichier uploadé : {e}")
+            #return None
+    #return None
 
 
 uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
