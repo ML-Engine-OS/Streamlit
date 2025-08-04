@@ -61,17 +61,6 @@ from sklearn.preprocessing import MinMaxScaler
 st.set_page_config(layout="wide", page_title="Survie ferroviaire avancée")
 st.title("Tableau de bord avancé : Fiabilité ferroviaire")
 
-# --- Connexion base PostgreSQL ---
-def get_db_engine():
-    if "db_url" in st.secrets:
-        db_string = st.secrets["db_url"]
-    else:
-        # Valeur par défaut, à remplacer ou configurer dans secrets.toml
-        db_string = "postgresql+psycopg2://user:password@host:port/dbname"
-    engine = create_engine(db_string)
-    return engine
-
-db_pgsql = get_db_engine()
 
 # --- Chargement fichier CSV ---
 uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
