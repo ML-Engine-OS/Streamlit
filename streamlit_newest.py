@@ -50,9 +50,9 @@ if uploaded_file is not None:
             df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
             df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
 
-            if 'censure' in df.columns:
-                df = df[df["censure"].isin([0, 1])]
-                df["censure"] = df["censure"].astype(int)
+            if 'censure;;' in df.columns:
+                df = df[df["censure;;"].isin([0, 1])]
+                df["censure;;"] = df["censure;;"].astype(int)
             else:
                 st.warning("Colonne 'censure' absente dans le fichier.")
             
@@ -108,9 +108,9 @@ def random_survival_forest(df):
     
     # Prepare features and target
     # Encode categoricals
-    subset_df = subset_df.dropna(subset=["lib_constr", "lib_lettre", "AGE_ETAT", "ACTIF", "censure"])
+    subset_df = subset_df.dropna(subset=["lib_constr", "lib_lettre", "AGE_ETAT", "ACTIF", "censure;;"])
     X = pd.get_dummies(subset_df[["lib_constr", "lib_lettre", "AGE_ETAT"]], drop_first=True)
-    y = np.array([(bool(e), t) for e, t in zip(subset_df["censure"], subset_df["ACTIF"])], dtype=[("event", bool), ("time", float)])
+    y = np.array([(bool(e), t) for e, t in zip(subset_df["censure;;"], subset_df["ACTIF"])], dtype=[("event", bool), ("time", float)])
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     rsf = RandomSurvivalForest(n_estimators=50, min_samples_split=10, min_samples_leaf=15, max_features="sqrt", n_jobs=-1, random_state=42)
@@ -135,11 +135,11 @@ def random_survival_forest(df):
 
 def gradient_boosting_survival(df):
     st.header("Gradient Boosting Survival Analysis (GBSA)")
-    df = df.dropna(subset=["ACTIF", "censure"])
+    df = df.dropna(subset=["ACTIF", "censure;;"])
     features = ["ACTIF"]  # add others if relevant
     X = df[features]
-    y = Surv.from_dataframe("censure", "ACTIF", df)
-    y = np.array([(bool(e), t) for e, t in zip(df["censure"], df["ACTIF"])], dtype=[("event", bool), ("time", float)])
+    y = Surv.from_dataframe("censure;;", "ACTIF", df)
+    y = np.array([(bool(e), t) for e, t in zip(df["censure;;"], df["ACTIF"])], dtype=[("event", bool), ("time", float)])
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     model = GradientBoostingSurvivalAnalysis(n_estimators=80, learning_rate=0.2, max_depth=3, random_state=42)
@@ -163,25 +163,25 @@ def gradient_boosting_survival(df):
 
 def cox_ph(df):
     st.header("Cox Proportional Hazards (CoxPH)")
-    colonnes = ['ACTIF', 'censure', 'AGE_ETAT', 'lib_constr', 'lib_lettre']
+    colonnes = ['ACTIF', 'censure;;', 'AGE_ETAT', 'lib_constr', 'lib_lettre']
     df_clean = df[colonnes].dropna()
     df_encoded = pd.get_dummies(df_clean, columns=['lib_constr', 'lib_lettre'], drop_first=True)
 
-    X = df_encoded.drop(columns=['ACTIF', 'censure'])
+    X = df_encoded.drop(columns=['ACTIF', 'censure;;'])
     corr_matrix = X.corr().abs()
     upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape), k=1).astype(bool))
     to_drop = [col for col in upper.columns if any(upper[col] > 0.95)]
     X_filtered = X.drop(columns=to_drop)
 
-    df_final = pd.concat([df_encoded[['ACTIF', 'censure']], X_filtered], axis=1)
+    df_final = pd.concat([df_encoded[['ACTIF', 'censure;;']], X_filtered], axis=1)
 
     cph = CoxPHFitter(penalizer=0.1)
     with st.spinner("Entraînement du modèle CoxPH..."):
-        cph.fit(df_final, duration_col='ACTIF', event_col='censure')
+        cph.fit(df_final, duration_col='ACTIF', event_col='censure;;')
     st.write(cph.summary)
 
     n = 30
-    sample = df_final.drop(columns=['ACTIF', 'censure']).iloc[:n]
+    sample = df_final.drop(columns=['ACTIF', 'censure;;']).iloc[:n]
     surv = cph.predict_survival_function(sample)
 
     fig, ax = plt.subplots(figsize=(14, 8))
@@ -196,9 +196,9 @@ def cox_ph(df):
 def lognormal_monte_carlo(df):
     st.header("Log-Normal Monte Carlo Simulation")
 
-    lognorm_df = df[["ACTIF", "censure"]].dropna()
+    lognorm_df = df[["ACTIF", "censure;;"]].dropna()
     lognorm_fitter = LogNormalFitter()
-    lognorm_fitter.fit(durations=lognorm_df["ACTIF"], event_observed=lognorm_df["censure"])
+    lognorm_fitter.fit(durations=lognorm_df["ACTIF"], event_observed=lognorm_df["censure;;"])
 
     st.write(f"Paramètres Log-Normal : mu = {lognorm_fitter.mu_:.2f}, sigma = {lognorm_fitter.sigma_:.2f}")
 
@@ -212,7 +212,7 @@ def lognormal_monte_carlo(df):
     N_simulations = st.number_input("Nombre de simulations", min_value=10, max_value=1000, value=300)
     N_years = st.number_input("Nombre d'années à simuler", min_value=1, max_value=50, value=25)
 
-    ages_actuels = df[df['censure'] == 0]['ACTIF'].dropna().values
+    ages_actuels = df[df['censure;;'] == 0]['ACTIF'].dropna().values
     parc_initial = list(ages_actuels)
     consommation_annuelle = []
 
