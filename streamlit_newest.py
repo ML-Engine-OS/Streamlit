@@ -25,38 +25,45 @@ warnings.filterwarnings("ignore")
 st.set_page_config(layout="wide", page_title="Survie ferroviaire avancée")
 st.title("Tableau de bord avancé : Fiabilité ferroviaire")
 
-uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
+@st.cache_data
+def load_data(uploaded_file=None):
+    if uploaded_file is not None:
+        try:
+            df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
+            df.columns = df.columns.str.strip().str.lower()
+        except Exception as e:
+            st.error(f"Erreur lecture fichier uploadé : {e}")
+            return None
+    else:
+        try:
+            df = pd.read_csv("your_data.csv")  # chemin par défaut
+        except Exception as e:
+            st.error(f"Erreur lecture fichier local : {e}")
+            return None
 
-if uploaded_file is not None:
-    try:
-        df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
-
-        # Nettoyage des noms de colonnes : enlever espaces, mettre en minuscules
-        df.columns = df.columns.str.strip().str.lower()
-
-        st.success(f"Fichier chargé avec succès : {df.shape[0]} lignes")
-        st.dataframe(df.head())
-
-        # Sidebar : filtres basés sur le DataFrame uploadé
-        st.sidebar.subheader("Filtres")       
-
-        n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=10000, value=100)
-
-        # Filtrage sur le nombre de lignes uniquement (plus de filtrage sur constructeur ici)
-        df = df.head(n_relais)
-
-def load_data():
-    # Load your dataset here or replace with your data loading code
-    df = pd.read_csv("your_data.csv")  # placeholder
-    df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
+    # Nettoyage commun
+    df["dtetat"] = pd.to_datetime(df["dtetat"], errors="coerce", format="%Y-%m-%d", exact=False)
     now = pd.Timestamp.today()
-    df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
-    df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
+    df["age_etat"] = (now - df["dtetat"]).dt.days / 365.25
+    df = df[df["dtetat"].notna() & (df["dtetat"].dt.year >= 1950) & (df["dtetat"].dt.year <= 2050)]
     df = df[df["censure"].isin([0, 1])]
     df["censure"] = df["censure"].astype(int)
     return df
 
-df = load_data()
+uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
+
+df = load_data(uploaded_file)
+
+if df is not None:
+    st.success(f"Data chargée avec {df.shape[0]} lignes")
+    st.dataframe(df.head())
+
+    n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=10000, value=100)
+    df = df.head(n_relais)
+
+    # suite du traitement...
+else:
+    st.warning("Aucune donnée disponible")
 
 st.title("🚀 Futuristic Survival Analysis Dashboard")
 
