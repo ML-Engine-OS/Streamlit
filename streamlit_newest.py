@@ -81,17 +81,6 @@ symb = st.sidebar.text_input("Symbole", "79540230")
 constructeurs = st.sidebar.multiselect("Constructeurs", ['ANSA', 'CSEE', 'HITA'], default=['ANSA', 'CSEE'])
 n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=500, value=100)
 
-def load_relais_data(symb, constructeurs):
-    # À adapter selon ta source réelle : requête SQL, API, fichier...
-    # Exemple fictif : récupération d'un DataFrame depuis la base PostgreSQL
-    query = f"""
-    SELECT * FROM relais
-    WHERE symbole = '{symb}'
-    AND lib_constr IN ({','.join(f"'{c}'" for c in constructeurs)})
-    """
-    df = pd.read_sql_query(query, db_pgsql)
-    return df
-
 if st.sidebar.button("Charger"):
     try:
         df = load_relais_data(symb=symb, constructeurs=constructeurs)
