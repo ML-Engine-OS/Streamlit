@@ -52,11 +52,6 @@ if df is not None:
 
     st.success(f"Data chargée avec {df.shape[0]} lignes")
     st.dataframe(df.head())
-
-
-    st.success(f"Data chargée avec {df.shape[0]} lignes")
-    st.dataframe(df.head())
-
     n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=10000, value=100)
     df = df.head(n_relais)
 
