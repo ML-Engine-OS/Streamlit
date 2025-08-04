@@ -24,7 +24,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 st.set_page_config(layout="wide", page_title="Survie ferroviaire avancée")
-st.title("Tableau de bord avancé : Fiabilité ferroviaire")
+st.title("Tableau de bord  : Analyse prédictive de la survie des relais de signalisation")
 
 
 @st.cache_data
@@ -74,14 +74,138 @@ model_choice = st.sidebar.selectbox(
      "Log-Normal Monte Carlo Simulation"]
 )
 
+
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
 def weibull_double_monte_carlo(df):
     st.header("Weibull Double Fitting + Monte Carlo")
     N_simulations = st.number_input("Nombre de simulations", min_value=10, max_value=1000, value=100)
     N_years = st.number_input("Nombre d'années à simuler", min_value=1, max_value=50, value=25)
     
-    # Placeholder: your weibull double fitting + monte carlo simulation logic here
+    # --- Données fictives pour Weibull Double Fitting ---
+    data_failures = np.random.weibull(a=1.5, size=100) * 50
+    data_censured = np.random.weibull(a=1.5, size=20) * 50
+
+    # Fit Weibull 2P
+    wb = Fit_Weibull_2P(failures=data_failures, right_censored=data_censured, show_probability_plot=False)
+    fitted_weibull = Weibull_Distribution(alpha=wb.alpha, beta=wb.beta)
+
+    # Courbe de survie
+    x = np.linspace(0, 65, 500)
+    sf = fitted_weibull.SF(x)
+    fig, ax = plt.subplots()
+    ax.plot(x, sf, '--', label="Fitted Weibull 2P")
+    ax.set_xlabel("Temps")
+    ax.set_ylabel("Fonction de survie")
+    ax.legend()
+    ax.grid(True)
+    st.pyplot(fig)
+
     st.info("Simulation en cours... (intégrer votre fonction ici)")
-    # Show plots & results here after simulation
+
+    # --- Âges initiaux simulés ---
+    np.random.seed(42)
+    ages_actuels = np.random.uniform(0, 20, size=1000)
+
+    # --- Fit Weibull 2P sur jeu de données simulé ---
+    failures = np.random.weibull(1.5, 500) * 20
+    censored = np.random.weibull(1.5, 200) * 20
+
+    wb = Fit_Weibull_2P(failures=failures, right_censored=censored, show_probability_plot=False)
+    fitted_weibull = Weibull_Distribution(alpha=wb.alpha, beta=wb.beta)
+
+    def generate_remaining_lifetime(age_actuel):
+        u = np.random.uniform()
+        total_life = fitted_weibull.generate_random(1)[0]
+        remaining = total_life - age_actuel
+        return remaining
+
+    parc_initial = list(ages_actuels)
+    st.write(f"Nombre initial de relais : {len(parc_initial)}")
+    st.write(f"Paramètres Weibull estimés : alpha = {wb.alpha:.2f}, beta = {wb.beta:.2f}")
+
+    # --- Simulation Monte Carlo ---
+    start = time.time()
+    consommation_annuelle = []
+    ages_par_annee = []
+
+    for sim in range(N_simulations):
+        parc = list(parc_initial)
+        consommation = []
+        ages_sim = []
+
+        for annee in range(N_years):
+            nb_remplacements = 0
+            nouveau_parc = []
+
+            for age in parc:
+                duree_restante = generate_remaining_lifetime(age)
+                if 0 < duree_restante <= 1:
+                    nb_remplacements += 1
+                    nouveau_parc.append(0)
+                elif duree_restante < 0:
+                    pass  # composant hors service
+                else:
+                    nouveau_parc.append(age + 1)
+
+            parc = nouveau_parc
+            consommation.append(nb_remplacements)
+            ages_sim.append(parc.copy())
+
+        consommation_annuelle.append(consommation)
+        ages_par_annee.append(ages_sim)
+
+    st.write(f"Simulation terminée en {time.time() - start:.2f} secondes.")
+
+    # --- Résultats statistiques ---
+    conso_array = np.array(consommation_annuelle)
+    moyenne_annuelle = conso_array.mean(axis=0)
+    std_annuelle = conso_array.std(axis=0)
+
+    # --- Graphique consommation moyenne ---
+    fig1, ax1 = plt.subplots(figsize=(12, 6))
+    years = np.arange(2025, 2025 + N_years)
+    ax1.plot(years, moyenne_annuelle, label="Consommation moyenne", color="navy")
+    ax1.fill_between(years, moyenne_annuelle - std_annuelle, moyenne_annuelle + std_annuelle,
+                     alpha=0.2, color="red", label="± 1 écart-type")
+    ax1.set_xlabel("Année")
+    ax1.set_ylabel("Nombre de relais remplacés")
+    ax1.set_title("Prévision annuelle de consommation moyenne des relais (Monte Carlo)")
+    ax1.legend()
+    ax1.grid(True)
+    st.pyplot(fig1)
+
+    # --- Violin plot ---
+    df_violin = pd.DataFrame(conso_array, columns=years)
+    fig2, ax2 = plt.subplots(figsize=(12, 6))
+    sns.violinplot(data=df_violin, inner="quartile", palette="coolwarm", cut=0, ax=ax2)
+    ax2.set_title("Distribution annuelle de la consommation des relais")
+    ax2.set_xlabel("Année")
+    ax2.set_ylabel("Relais remplacés")
+    ax2.grid(True)
+    plt.xticks(rotation=45)
+    st.pyplot(fig2)
+
+    # --- Histogrammes des âges pour la 1ère simulation ---
+    st.write("### Histogrammes des âges des relais au fil des années (Simulation 1)")
+    for annee_target in range(N_years):
+        fig3, ax3 = plt.subplots(figsize=(10, 5))
+        tous_ages = ages_par_annee[0][annee_target]
+        ax3.hist(tous_ages, bins=range(0, int(max(tous_ages)) + 2), edgecolor='black', alpha=0.7)
+        ax3.set_title(f"Distribution des âges des relais en {2025 + annee_target}")
+        ax3.set_xlabel("Âge des composants (années)")
+        ax3.set_ylabel("Nombre de composants")
+        ax3.grid(True)
+        st.pyplot(fig3)
+
+
+
+
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
 
 def weibull_competing_risks(df):
     st.header("Weibull Competing Risks + Monte Carlo")
@@ -89,7 +213,144 @@ def weibull_competing_risks(df):
     N_years = st.number_input("Nombre d'années à simuler", min_value=1, max_value=50, value=25)
 
     st.info("Simulation en cours... (intégrer votre fonction ici)")
-    # Add your competing risks code + plots
+
+    # --- Simulation des données competing risks ---
+    np.random.seed(42)
+    n = 50000
+    age_mecanique = np.random.weibull(1.5, size=n) * 30
+    age_electrique = np.random.weibull(2.5, size=n) * 40
+
+    true_event_time = np.minimum(age_mecanique, age_electrique)
+    cause = np.where(age_mecanique < age_electrique, 'mecanique', 'electrique')
+
+    censure = np.random.binomial(1, 0.2, size=n)
+    observed = (censure == 0)
+    censoring_offsets = np.random.uniform(0, 10, size=n)
+    observed_time = np.where(observed, true_event_time, true_event_time - censoring_offsets)
+    observed_time = np.clip(observed_time, 0.01, None)
+
+    df_competing = pd.DataFrame({
+        "time": observed_time,
+        "event": observed,
+        "cause": cause
+    })
+
+    # --- Fit Weibull par cause ---
+    fitter_meca = WeibullFitter().fit(
+        df_competing[df_competing["cause"] == "mecanique"]["time"],
+        event_observed=df_competing[df_competing["cause"] == "mecanique"]["event"],
+        label="Panne mécanique"
+    )
+    fitter_elec = WeibullFitter().fit(
+        df_competing[df_competing["cause"] == "electrique"]["time"],
+        event_observed=df_competing[df_competing["cause"] == "electrique"]["event"],
+        label="Panne électrique"
+    )
+
+    # --- Courbes de survie ---
+    st.write("### Fonctions de survie par cause")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    fitter_meca.plot_survival_function(ax=ax)
+    fitter_elec.plot_survival_function(ax=ax)
+    ax.set_title("Fonctions de survie - Competing Risks (Weibull)")
+    ax.set_xlabel("Temps")
+    ax.set_ylabel("Probabilité de survie")
+    ax.grid(True)
+    st.pyplot(fig)
+
+    # --- Fonction durée de vie restante selon competing risks ---
+    def generate_lifetime_competing():
+        t_m = np.random.weibull(fitter_meca.rho_) * fitter_meca.lambda_
+        t_e = np.random.weibull(fitter_elec.rho_) * fitter_elec.lambda_
+        return min(t_m, t_e)
+
+    # --- Âges actuels (fictifs) ---
+    ages_actuels = np.random.uniform(0, 20, size=1000)
+    parc_initial = list(ages_actuels)
+    st.write(f"Nombre initial de relais : {len(parc_initial)}")
+
+    # --- Simulation Monte Carlo ---
+    start = time.time()
+    consommation_annuelle = []
+    ages_par_annee = []
+
+    for sim in range(N_simulations):
+        parc_sim = list(parc_initial)
+        conso_annuelle = []
+        ages_sim = []
+
+        for annee in range(N_years):
+            parc_temp = []
+            remplacement = 0
+
+            for age in parc_sim:
+                vie_restante = generate_lifetime_competing()
+                if vie_restante < 0:
+                    pass
+                elif vie_restante <= 1:
+                    remplacement += 1
+                    parc_temp.append(0)
+                else:
+                    parc_temp.append(age + 1)
+
+            parc_sim = parc_temp
+            conso_annuelle.append(remplacement)
+            ages_sim.append(parc_sim.copy())
+
+        consommation_annuelle.append(conso_annuelle)
+        ages_par_annee.append(ages_sim)
+
+    st.write(f"Simulation terminée en {time.time() - start:.2f} secondes.")
+
+    # --- Statistiques de consommation ---
+    consommation_annuelle = np.array(consommation_annuelle)
+    conso_moy = consommation_annuelle.mean(axis=0)
+    conso_min = consommation_annuelle.min(axis=0)
+    conso_max = consommation_annuelle.max(axis=0)
+
+    # --- Graphique consommation annuelle ---
+    years = range(2025, 2025 + N_years)
+    fig2, ax2 = plt.subplots(figsize=(10, 5))
+    ax2.plot(years, conso_moy, label="Consommation moyenne", color="steelblue")
+    ax2.fill_between(years, conso_min, conso_max, color="lightblue", alpha=0.5, label="Intervalle min-max")
+    ax2.set_title("Projection Monte Carlo - Competing Risks avec relais neufs")
+    ax2.set_xlabel("Année")
+    ax2.set_ylabel("Nombre de remplacements")
+    ax2.ticklabel_format(style='plain', axis='y')
+    ax2.grid(True)
+    ax2.legend()
+    plt.tight_layout()
+    st.pyplot(fig2)
+
+    # --- Violin plot ---
+    df_violin = pd.DataFrame(consommation_annuelle, columns=years)
+    fig3, ax3 = plt.subplots(figsize=(12, 6))
+    sns.violinplot(data=df_violin, inner="quartile", palette="coolwarm", cut=0, ax=ax3)
+    ax3.set_title("Distribution annuelle de la consommation des relais")
+    ax3.set_xlabel("Année")
+    ax3.set_ylabel("Relais remplacés")
+    ax3.grid(True)
+    plt.xticks(rotation=45)
+    st.pyplot(fig3)
+
+    # --- Histogrammes des âges des relais (simulation 1) ---
+    st.write("### Histogrammes des âges des relais (Simulation 1)")
+    for annee_target in range(N_years):
+        fig_hist, ax_hist = plt.subplots(figsize=(10, 5))
+        tous_ages = ages_par_annee[0][annee_target]
+        ax_hist.hist(tous_ages, bins=range(0, int(max(tous_ages)) + 2), edgecolor='black', alpha=0.7)
+        ax_hist.set_title(f"Distribution des âges des relais en {2025 + annee_target}")
+        ax_hist.set_xlabel("Âge des composants (années)")
+        ax_hist.set_ylabel("Nombre de composants")
+        ax_hist.grid(True)
+        plt.tight_layout()
+        st.pyplot(fig_hist)
+
+
+
+
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 def random_survival_forest(df):
     st.header("Random Survival Forest (RSF)")
@@ -130,6 +391,8 @@ def random_survival_forest(df):
     ax.grid(True)
     st.pyplot(fig)
 
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 def gradient_boosting_survival(df):
     st.header("Gradient Boosting Survival Analysis (GBSA)")
     df = df.dropna(subset=["ACTIF", "censure;;"])
@@ -157,6 +420,11 @@ def gradient_boosting_survival(df):
     ax.set_ylabel("Probabilité de survie")
     ax.grid(True)
     st.pyplot(fig)
+
+
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
 
 def cox_ph(df):
     st.header("Cox Proportional Hazards (CoxPH)")
@@ -189,6 +457,9 @@ def cox_ph(df):
     ax.set_ylabel("Probabilité de survie")
     ax.grid(True)
     st.pyplot(fig)
+
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 def lognormal_monte_carlo(df):
     st.header("Log-Normal Monte Carlo Simulation")
@@ -258,6 +529,10 @@ def lognormal_monte_carlo(df):
     ax2.grid(True)
     plt.setp(ax2.get_xticklabels(), rotation=45)
     st.pyplot(fig2)
+
+#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
 
 # Main app logic
 if model_choice == "Weibull Double + Monte Carlo":
