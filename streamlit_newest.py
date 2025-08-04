@@ -13,22 +13,10 @@ st.title("Tableau de bord avancé : Fiabilité ferroviaire")
 db_string = st.secrets["db_url"] if "db_url" in st.secrets else "postgresql+psycopg2://user:password@host:port/dbname"
 db_pgsql = create_engine(db_string)
 
-# ---------------- Fonction de chargement ----------------
-def load_relais_data(symb="79540230", constructeurs=['ANSA', 'CSEE']):
-    with db_pgsql.connect() as db_pgconn:
-        query = text("""
-            SELECT * 
-            FROM "AGRSIG_PBI"."ASTOTS" a 
-            LEFT JOIN "AGRSIG_PBI"."FAS_DUREE_VIE_4" b 
-            ON a."CLE" = b."CLE_TB_AS" 
-            WHERE symb = :symb 
-            AND lib_constr IN :constructeurs
-        """)
-        df = pd.read_sql(query, db_pgconn, params={"symb": symb, "constructeurs": tuple(constructeurs)})
-    if "ACTIF" in df.columns:
-        df["ACTIF"] = df["ACTIF"] / 365.25
-    return df
+def load_data():
+    return pd.read_csv("donnees_relais.csv")
 
+df = load_data()
 # ---------------- Interface utilisateur ----------------
 st.sidebar.subheader("Chargement des données")
 symb = st.sidebar.text_input("Symbole", "79540230")
