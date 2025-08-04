@@ -48,16 +48,9 @@ if uploaded_file is not None:
             df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
             now = pd.Timestamp.today()
             df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
-
-            if 'censure;;' in df.columns:
-                df = df[df["censure;;"].isin([0, 1])]
-                df["censure;;"] = df["censure;;"].astype(int)
-            else:
-                st.warning("Colonne 'censure' absente dans le fichier.")
-            
+            df["censure"] = pd.to_numeric(df["censure"], errors="coerce").fillna(0).astype(int)
             st.success(f"Data chargée avec {df.shape[0]} lignes")
             st.dataframe(df.head())
-
             n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=10000, value=100)
             
         else:
