@@ -55,7 +55,7 @@ if uploaded_file is not None:
         df_filtered = df_filtered.head(n_relais)
 
         st.dataframe(df_filtered)
-        if "ACTIF" in df.columns and "censure" in df.columns:
+        if ""ACTIF"" in df.columns and ""censure"" in df.columns:
 
             # Weibull mixte par constructeur
             with st.expander("Weibull mixte par constructeur"):
