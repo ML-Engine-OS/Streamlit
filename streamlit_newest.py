@@ -48,7 +48,7 @@ if uploaded_file is not None:
             df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
             now = pd.Timestamp.today()
             df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
-            df["censure"] = pd.to_numeric(df["censure"], errors="coerce").fillna(0).astype(int)
+            df["censure;;"] = pd.to_numeric(df["censure;;"], errors="coerce").fillna(0).astype(int)
             st.success(f"Data chargée avec {df.shape[0]} lignes")
             st.dataframe(df.head())
             n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=10000, value=100)
@@ -101,9 +101,9 @@ def random_survival_forest(df):
     df["DTETAT"].notna() &
     (df["DTETAT"].dt.year >= 1950) &
     (df["DTETAT"].dt.year <= 2050) &
-    df["censure"].isin([0, 1]) ].copy()
+    df["censure;;"].isin([0, 1]) ].copy()
     # Étape 2 : Encodage des variables catégorielles + suppression des NaN
-    subset_df = df_rsf[["lib_constr", "lib_lettre", "AGE_ETAT", "ACTIF", "censure"]].dropna()
+    subset_df = df_rsf[["lib_constr", "lib_lettre", "AGE_ETAT", "ACTIF", "censure;;"]].dropna()
     subset_df = subset_df.sample(n=sample_size, random_state=42)
     # Prepare features and target
     X = pd.get_dummies(subset_df[["lib_constr", "lib_lettre", "AGE_ETAT"]], drop_first=True)
