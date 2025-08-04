@@ -25,6 +25,7 @@ warnings.filterwarnings("ignore")
 st.set_page_config(layout="wide", page_title="Survie ferroviaire avancée")
 st.title("Tableau de bord avancé : Fiabilité ferroviaire")
 
+
 @st.cache_data
 def load_data(uploaded_file=None):
     if uploaded_file is not None:
@@ -32,26 +33,24 @@ def load_data(uploaded_file=None):
             df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
             df.columns = df.columns.str.strip().str.lower()
             return df
-
         except Exception as e:
             st.error(f"Erreur lecture fichier uploadé : {e}")
-    
-
-
-
-df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
-now = pd.Timestamp.today()
-df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
-df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
-df = df[df["censure"].isin([0, 1])]
-df["censure"] = df["censure"].astype(int)
-
+            return None
+    return None
 
 uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
 
 df = load_data(uploaded_file)
 
 if df is not None:
+    # Ici on fait les transformations APRES chargement
+    df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
+    now = pd.Timestamp.today()
+    df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
+    df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
+    df = df[df["censure"].isin([0, 1])]
+    df["censure"] = df["censure"].astype(int)
+
     st.success(f"Data chargée avec {df.shape[0]} lignes")
     st.dataframe(df.head())
 
