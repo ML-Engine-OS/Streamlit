@@ -38,24 +38,22 @@ def load_data(uploaded_file=None):
             return None
     return None
 
+import io
+
 uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
 
 if uploaded_file is not None:
-    try:
-        # Lire le CSV normalement (virgule séparateur)
-        df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip', quotechar='"')
-        
-        # Afficher colonnes brutes
-        st.write("Colonnes brutes :", df.columns.tolist())
-        
-        # Nettoyer les colonnes : enlever guillemets et espaces superflus
-        df.columns = df.columns.str.replace('"', '').str.strip()
-        
-        # Enlever colonne vide ou mal formée (exemple de colonne vide avec nom bizarre)
-        df = df.loc[:, df.columns != '']
-        
-        # Afficher colonnes nettoyées
-        st.write("Colonnes nettoyées :", df.columns.tolist())
+    content = uploaded_file.getvalue().decode('utf-8')
+
+    # Nettoyer la première ligne d'en-tête pour retirer guillemets externes et ;; en fin
+    lines = content.splitlines()
+    header = lines[0].strip().strip('"').rstrip(';')
+    data = '\n'.join([header] + lines[1:])
+
+    # Lire avec pandas depuis la chaîne nettoyée
+    df = pd.read_csv(io.StringIO(data), sep=',', encoding='utf-8', on_bad_lines='skip')
+
+    st.write("Colonnes:", df.columns.tolist())
         
         # Vérifier présence colonne DTETAT
         if 'DTETAT' in df.columns:
