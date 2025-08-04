@@ -59,7 +59,7 @@ if uploaded_file is not None:
             st.dataframe(df.head())
 
             n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=10000, value=100)
-            df = df.head(n_relais))
+            df = df.head(n_relais)
             
         else:
             st.error("La colonne 'DTETAT' est absente dans le fichier.")
