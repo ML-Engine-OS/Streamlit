@@ -40,15 +40,17 @@ def load_data(uploaded_file=None):
         except Exception as e:
             st.error(f"Erreur lecture fichier local : {e}")
             return None
+     return df
 
-    # Nettoyage commun
-    df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
-    now = pd.Timestamp.today()
-    df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
-    df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
-    df = df[df["censure"].isin([0, 1])]
-    df["censure"] = df["censure"].astype(int)
-    return df
+
+
+df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
+now = pd.Timestamp.today()
+df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
+df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
+df = df[df["censure"].isin([0, 1])]
+df["censure"] = df["censure"].astype(int)
+
 
 uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
 
