@@ -24,9 +24,6 @@ from reliability.Distributions import Weibull_Distribution
 
 
 from sqlalchemy import create_engine,text
-from IPython.display import Markdown as md
-from IPython.display import display, HTML
-
 # -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
