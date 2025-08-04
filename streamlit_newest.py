@@ -39,25 +39,28 @@ def load_data(uploaded_file=None):
 
 uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
 
-df = load_data(uploaded_file)
+if uploaded_file is not None:
+    try:
+        df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
 
-if df is not None:
-    # Ici on fait les transformations APRES chargement
-    df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
-    now = pd.Timestamp.today()
-    df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
-    df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
-    df = df[df["censure"].isin([0, 1])]
-    df["censure"] = df["censure"].astype(int)
+        st.write("Colonnes du DataFrame chargé :", df.columns.tolist())  # <-- affiche la liste des colonnes
 
-    st.success(f"Data chargée avec {df.shape[0]} lignes")
-    st.dataframe(df.head())
-    n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=10000, value=100)
-    df = df.head(n_relais)
+        # Ensuite tu peux continuer ton traitement en étant sûr des colonnes
 
-    # suite du traitement...
+        df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
+        now = pd.Timestamp.today()
+        df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
+        df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
+        df = df[df["censure"].isin([0, 1])]
+        df["censure"] = df["censure"].astype(int)
+
+        st.success(f"Data chargée avec {df.shape[0]} lignes")
+        st.dataframe(df.head())
+
+    except Exception as e:
+        st.error(f"Erreur lecture fichier uploadé : {e}")
 else:
-    st.warning("Aucune donnée disponible")
+    st.warning("Aucun fichier chargé.")
 
 st.title("🚀 Futuristic Survival Analysis Dashboard")
 
