@@ -45,19 +45,6 @@ if uploaded_file is not None:
     try:
         # Lire le CSV normalement (virgule séparateur)
         df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip', quotechar='"')
-        
-        # Afficher colonnes brutes
-        st.write("Colonnes brutes :", df.columns.tolist())
-        
-        # Nettoyer les colonnes : enlever guillemets et espaces superflus
-        df.columns = df.columns.str.replace('"', '').str.strip()
-        
-        # Enlever colonne vide ou mal formée (exemple de colonne vide avec nom bizarre)
-        df = df.loc[:, df.columns != '']
-        
-        # Afficher colonnes nettoyées
-        st.write("Colonnes nettoyées :", df.columns.tolist())
-        
         # Vérifier présence colonne DTETAT
         if 'DTETAT' in df.columns:
             df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
