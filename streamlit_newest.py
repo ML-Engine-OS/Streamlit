@@ -46,13 +46,13 @@ if uploaded_file is not None:
         # Lire le CSV normalement (virgule séparateur)
         df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
         # Vérifier présence colonne DTETAT
-        if DTETAT in df.columns:
-            df[DTETAT] = pd.to_datetime(df[DTETAT], errors="coerce", format="%Y-%m-%d", exact=False)
+        if 'DTETAT' in df.columns:
+            df['DTETAT'] = pd.to_datetime(df['DTETAT'], errors="coerce", format="%Y-%m-%d", exact=False)
             now = pd.Timestamp.today()
             df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
             df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
             
-            if censure in df.columns:
+            if 'censure;;' in df.columns:
                 df = df[df["censure"].isin([0, 1])]
                 df["censure"] = df["censure"].astype(int)
             else:
