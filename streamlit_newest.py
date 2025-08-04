@@ -1,11 +1,8 @@
 import os
 import streamlit as st
-import sys
-import time
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-
 import seaborn as sns
 import random
 import math
@@ -13,54 +10,20 @@ import math
 from scipy.optimize import minimize
 from scipy.stats import weibull_min, genextreme
 from scipy.special import gamma
-# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 import reliability.Fitters as ft
 from reliability.Fitters import Fit_Weibull_2P, Fit_Weibull_Mixture
 from reliability.Nonparametric import KaplanMeier
 from reliability.Distributions import Weibull_Distribution
 
-
-# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-from sqlalchemy import create_engine,text
-# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-# Pour la modélisation statistique
-from lifelines import WeibullFitter, KaplanMeierFitter
-from lifelines.plotting import plot_lifetimes
-from lifelines import LogNormalFitter
-from lifelines import CoxPHFitter
+from lifelines import WeibullFitter, KaplanMeierFitter, LogNormalFitter, CoxPHFitter
 from lifelines.utils import k_fold_cross_validation
 
-
-# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-from sksurv.ensemble import RandomSurvivalForest
-from sksurv.preprocessing import OneHotEncoder
-from sksurv.metrics import concordance_index_censored
-from sksurv.util import Surv
-from sksurv.functions import StepFunction
-from sksurv.ensemble import GradientBoostingSurvivalAnalysis
-from sksurv.datasets import get_x_y
-
-# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.inspection import permutation_importance
-from sklearn.preprocessing import MinMaxScaler
-
-
+import warnings
+warnings.filterwarnings("ignore")
 
 st.set_page_config(layout="wide", page_title="Survie ferroviaire avancée")
 st.title("Tableau de bord avancé : Fiabilité ferroviaire")
-
 
 uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
 
@@ -69,23 +32,6 @@ if uploaded_file is not None:
         df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
         st.success(f"Fichier chargé avec succès : {df.shape[0]} lignes")
         st.dataframe(df.head())
-        # suite du traitement...
-    except Exception as e:
-        st.error(f"Erreur lors de la lecture du fichier CSV : {e}")
-else:
-    st.info("Veuillez uploader un fichier CSV pour commencer.")
-
-# --- Sidebar : filtres et chargement base ---
-st.sidebar.subheader("Chargement des données")
-symb = st.sidebar.text_input("Symbole", "79540230")
-constructeurs = st.sidebar.multiselect("Constructeurs", ['ANSA', 'CSEE', 'HITA'], default=['ANSA', 'CSEE'])
-n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=500, value=100)
-
-if st.sidebar.button("Charger"):
-    try:
-        df = load_relais_data(symb=symb, constructeurs=constructeurs)
-        df = df.head(n_relais)
-        st.dataframe(df)
 
         if "ACTIF" in df.columns and "censure" in df.columns:
 
@@ -165,6 +111,9 @@ if st.sidebar.button("Charger"):
                         st.error(f"Erreur Cox PH : {e}")
                 else:
                     st.warning("Données insuffisantes pour le modèle Cox PH.")
-
+        else:
+            st.warning("Les colonnes 'ACTIF' et 'censure' sont requises dans le fichier CSV.")
     except Exception as e:
-        st.error(f"Erreur lors du chargement des données : {e}")
+        st.error(f"Erreur lors de la lecture du fichier CSV : {e}")
+else:
+    st.info("Veuillez uploader un fichier CSV pour commencer.")
