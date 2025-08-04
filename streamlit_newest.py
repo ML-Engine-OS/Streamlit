@@ -59,7 +59,7 @@ if uploaded_file is not None:
         st.dataframe(df_filtered)
 
         # Vérification des colonnes nécessaires
-        if "ACTIF" in df.columns and "censure" in df.columns:
+        if 'ACTIF' in df.columns and 'censure' in df.columns:
             st.write("Les colonnes 'ACTIF' et 'censure' sont présentes. Analyse possible.")
 
             # Weibull mixte par constructeur
