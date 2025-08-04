@@ -42,31 +42,36 @@ if uploaded_file is not None:
 
         n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=10000, value=100)
 
+        # Filtrage sur le nombre de lignes uniquement (plus de filtrage sur constructeur ici)
+        df = df.head(n_relais)
 
-        # === ANALYSES (sans condition) ===
+        # === ANALYSES (avec df uniquement) ===
 
         # Weibull mixte par constructeur
         with st.expander("Weibull mixte par constructeur"):
-            for constr in df_filtered['lib_constr'].dropna().unique():
-                subset = df_filtered[(df_filtered['lib_constr'] == constr) & (~df_filtered['actif'].isna())]
-                failures = subset[subset['censure'] == 1]['actif'].values
-                censored = subset[subset['censure'] == 0]['actif'].values
-                if len(failures) > 20:
-                    model = Fit_Weibull_Mixture(failures=failures, right_censored=censored, show_plot=False)
-                    x_vals = np.linspace(0.1, 200, 1000)
-                    total_pdf = np.zeros_like(x_vals)
-                    for beta, eta, prop in [
-                        (model.beta_1, model.alpha_1, model.proportion_1),
-                        (model.beta_2, model.alpha_2, 1 - model.proportion_1)
-                    ]:
-                        pdf = (beta / eta) * (x_vals / eta) ** (beta - 1) * np.exp(-(x_vals / eta) ** beta)
-                        total_pdf += prop * pdf
-                    fig, ax = plt.subplots()
-                    ax.plot(x_vals, total_pdf, label=f"Mixture {constr}")
-                    ax.set_title(f"Densité de défaillance - {constr}")
-                    ax.set_xlabel("Temps (années)")
-                    ax.legend()
-                    st.pyplot(fig)
+            if 'lib_constr' in df.columns:
+                for constr in df['lib_constr'].dropna().unique():
+                    subset = df[(df['lib_constr'] == constr) & (~df['actif'].isna())]
+                    failures = subset[subset['censure'] == 1]['actif'].values
+                    censored = subset[subset['censure'] == 0]['actif'].values
+                    if len(failures) > 20:
+                        model = Fit_Weibull_Mixture(failures=failures, right_censored=censored, show_plot=False)
+                        x_vals = np.linspace(0.1, 200, 1000)
+                        total_pdf = np.zeros_like(x_vals)
+                        for beta, eta, prop in [
+                            (model.beta_1, model.alpha_1, model.proportion_1),
+                            (model.beta_2, model.alpha_2, 1 - model.proportion_1)
+                        ]:
+                            pdf = (beta / eta) * (x_vals / eta) ** (beta - 1) * np.exp(-(x_vals / eta) ** beta)
+                            total_pdf += prop * pdf
+                        fig, ax = plt.subplots()
+                        ax.plot(x_vals, total_pdf, label=f"Mixture {constr}")
+                        ax.set_title(f"Densité de défaillance - {constr}")
+                        ax.set_xlabel("Temps (années)")
+                        ax.legend()
+                        st.pyplot(fig)
+            else:
+                st.warning("La colonne 'lib_constr' est manquante.")
 
         # Risques concurrents - Simulation Weibull
         with st.expander("Risques concurrents - Simulation Weibull"):
@@ -96,7 +101,7 @@ if uploaded_file is not None:
 
         # Log-Normal : Modèle de survie
         with st.expander("Log-Normal : Modèle de survie"):
-            failures = df_filtered[df_filtered['censure'] == 1]['actif']
+            failures = df[df['censure'] == 1]['actif']
             if len(failures) > 0:
                 model_ln = LogNormalFitter().fit(failures)
                 fig, ax = plt.subplots()
@@ -108,7 +113,7 @@ if uploaded_file is not None:
 
         # Modèle de Cox Proportionnel
         with st.expander("Modèle de Cox Proportionnel"):
-            df_cox = df_filtered.copy()
+            df_cox = df.copy()
             df_cox["event"] = df_cox["censure"] == 1
             df_cox = df_cox.dropna(subset=["actif"])
             if len(df_cox) > 0:
@@ -128,3 +133,4 @@ if uploaded_file is not None:
         st.error(f"Erreur lors de la lecture du fichier CSV : {e}")
 else:
     st.info("Veuillez uploader un fichier CSV pour commencer.")
+
