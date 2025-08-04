@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import random
 import math
+import time
 
 from scipy.optimize import minimize
 from scipy.stats import weibull_min, genextreme
@@ -206,9 +207,9 @@ def weibull_double_monte_carlo(df):
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-
-def weibull_competing_risks(df):
-    st.header("Weibull Competing Risks + Monte Carlo")
+st.header("Weibull Competing Risks + Monte Carlo")
+def weibull_competing_risks():
+    
     N_simulations = st.number_input("Nombre de simulations", min_value=10, max_value=500, value=100)
     N_years = st.number_input("Nombre d'années à simuler", min_value=1, max_value=50, value=25)
 
@@ -264,9 +265,11 @@ def weibull_competing_risks(df):
         t_e = np.random.weibull(fitter_elec.rho_) * fitter_elec.lambda_
         return min(t_m, t_e)
 
-    # --- Âges actuels (fictifs) ---
-    ages_actuels = np.random.uniform(0, 20, size=1000)
-    parc_initial = list(ages_actuels)
+    # --- Âges actuels (fictifs) --
+    df_vivants = df[(df["censure;;"] == 0) & (~df["ACTIF"].isna())]
+    ages_actuels = df_vivants["ACTIF"].values
+    ages_actuels = np.array(df[df["censure;;"] == 0]["ACTIF"].values)
+    parc_initial = list(ages_actuels) 
     st.write(f"Nombre initial de relais : {len(parc_initial)}")
 
     # --- Simulation Monte Carlo ---
@@ -352,7 +355,7 @@ def weibull_competing_risks(df):
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-def random_survival_forest(df):
+def random_survival_forest():
     st.header("Random Survival Forest (RSF)")
     st.write("Entraînement et évaluation du modèle RSF sur un sous-échantillon.")
 
