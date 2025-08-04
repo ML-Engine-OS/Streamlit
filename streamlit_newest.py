@@ -5,6 +5,80 @@ import matplotlib.pyplot as plt
 from sqlalchemy import create_engine, text
 from lifelines import WeibullFitter, LogNormalFitter, CoxPHFitter
 from reliability.Fitters import Fit_Weibull_Mixture
+import os
+import sys
+import time
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+import seaborn as sns
+import random
+import math
+
+from scipy.optimize import minimize
+from scipy.stats import weibull_min, genextreme
+from scipy.special import gamma
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+import reliability.Fitters as ft
+from reliability.Fitters import Fit_Weibull_2P, Fit_Weibull_Mixture
+from reliability.Nonparametric import KaplanMeier
+from reliability.Distributions import Weibull_Distribution
+
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+from sqlalchemy import create_engine,text
+from IPython.display import Markdown as md
+from IPython.display import display, HTML
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+# Pour la modélisation statistique
+from lifelines import WeibullFitter, KaplanMeierFitter
+from lifelines.plotting import plot_lifetimes
+from lifelines import LogNormalFitter
+from lifelines import CoxPHFitter
+from lifelines.utils import k_fold_cross_validation
+
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+from sksurv.ensemble import RandomSurvivalForest
+from sksurv.preprocessing import OneHotEncoder
+from sksurv.metrics import concordance_index_censored
+from sksurv.util import Surv
+from sksurv.functions import StepFunction
+from sksurv.ensemble import GradientBoostingSurvivalAnalysis
+from sksurv.datasets import get_x_y
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.inspection import permutation_importance
+from sklearn.preprocessing import MinMaxScaler
+#import tensorflow as tf
+#from tensorflow.keras.models import Sequential
+#from tensorflow.keras.layers import LSTM, Dense
+#from tensorflow.keras.callbacks import EarlyStopping
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
+# -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+import warnings
+warnings.filterwarnings("ignore")
+
 
 st.set_page_config(layout="wide", page_title="Survie ferroviaire avancée")
 st.title("Tableau de bord avancé : Fiabilité ferroviaire")
