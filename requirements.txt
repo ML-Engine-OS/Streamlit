@@ -3,7 +3,10 @@ pandas
 numpy
 matplotlib
 sqlalchemy
-psycopg2-binary
 lifelines
 reliability
+scipy
+scikit-survival
 seaborn
+scikit-learn
+tensorflow
