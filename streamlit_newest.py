@@ -42,10 +42,10 @@ def load_data(uploaded_file=None):
             return None
 
     # Nettoyage commun
-    df["dtetat"] = pd.to_datetime(df["dtetat"], errors="coerce", format="%Y-%m-%d", exact=False)
+    df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
     now = pd.Timestamp.today()
-    df["age_etat"] = (now - df["dtetat"]).dt.days / 365.25
-    df = df[df["dtetat"].notna() & (df["dtetat"].dt.year >= 1950) & (df["dtetat"].dt.year <= 2050)]
+    df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
+    df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
     df = df[df["censure"].isin([0, 1])]
     df["censure"] = df["censure"].astype(int)
     return df
