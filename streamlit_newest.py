@@ -48,7 +48,6 @@ if uploaded_file is not None:
             df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
             now = pd.Timestamp.today()
             df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
-            df = df[df["DTETAT"].notna() & (df["DTETAT"].dt.year >= 1950) & (df["DTETAT"].dt.year <= 2050)]
 
             if 'censure;;' in df.columns:
                 df = df[df["censure;;"].isin([0, 1])]
@@ -104,11 +103,16 @@ def random_survival_forest(df):
     st.write("Entraînement et évaluation du modèle RSF sur un sous-échantillon.")
 
     sample_size = st.slider("Taille de l'échantillon", min_value=1000, max_value=50000, value=20000, step=1000)
-    subset_df = df.sample(n=sample_size, random_state=42)
     
+    df_rsf = df[
+    df["DTETAT"].notna() &
+    (df["DTETAT"].dt.year >= 1950) &
+    (df["DTETAT"].dt.year <= 2050) &
+    df["censure"].isin([0, 1]) ].copy()
+    # Étape 2 : Encodage des variables catégorielles + suppression des NaN
+    subset_df = df_rsf[["lib_constr", "lib_lettre", "AGE_ETAT", "ACTIF", "censure"]].dropna()
+    subset_df = subset_df.sample(n=sample_size, random_state=42)
     # Prepare features and target
-    # Encode categoricals
-    subset_df = subset_df.dropna(subset=["lib_constr", "lib_lettre", "AGE_ETAT", "ACTIF", "censure;;"])
     X = pd.get_dummies(subset_df[["lib_constr", "lib_lettre", "AGE_ETAT"]], drop_first=True)
     y = np.array([(bool(e), t) for e, t in zip(subset_df["censure;;"], subset_df["ACTIF"])], dtype=[("event", bool), ("time", float)])
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
