@@ -63,7 +63,6 @@ else:
     st.warning("Aucun fichier chargé.")
         
         
-st.title("🚀 Futuristic Survival Analysis Dashboard")
 
 model_choice = st.sidebar.selectbox(
     "Choisir le modèle / méthode",
@@ -117,11 +116,15 @@ def weibull_double_monte_carlo(df):
     wb = Fit_Weibull_2P(failures=failures, right_censored=censored, show_probability_plot=False)
     fitted_weibull = Weibull_Distribution(alpha=wb.alpha, beta=wb.beta)
 
-    def generate_remaining_lifetime(age_actuel):
-        u = np.random.uniform()
-        total_life = fitted_weibull.generate_random(1)[0]
-        remaining = total_life - age_actuel
-        return remaining
+   def generate_remaining_lifetime(current_age):
+       u = random.random()
+       inside_log = u * math.exp(- (current_age / eta) ** beta)
+       if inside_log <= 0:
+           return eta  # Valeur par défaut en cas de problème numérique
+       durée_totale = eta * (-math.log(inside_log)) ** (1 / beta)
+       T = durée_totale - current_age
+
+       return T 
 
     parc_initial = list(ages_actuels)
     st.write(f"Nombre initial de relais : {len(parc_initial)}")
@@ -215,6 +218,7 @@ def weibull_competing_risks():
 
     st.info("Simulation en cours... (intégrer votre fonction ici)")
 
+    
     # --- Simulation des données competing risks ---
     np.random.seed(42)
     n = 50000
@@ -373,7 +377,76 @@ def random_survival_forest():
     X = pd.get_dummies(subset_df[["lib_constr", "lib_lettre", "AGE_ETAT"]], drop_first=True)
     y = np.array([(bool(e), t) for e, t in zip(subset_df["censure;;"], subset_df["ACTIF"])], dtype=[("event", bool), ("time", float)])
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    @st.cache_data
+    st.write("## Entraînement du modèle RSF")
+    
+    rsf = RandomSurvivalForest(
+    n_estimators=50,
+    min_samples_split=10,
+    min_samples_leaf=15,
+    max_features="sqrt",
+    n_jobs=-1,
+    random_state=42)
+    
+    
+    with st.spinner("Entraînement en cours..."):
+    rsf.fit(X_train, y_train)
+    st.success("Modèle entraîné!")
+    c_index = concordance_index_censored(y_test["event"], y_test["time"], rsf.predict(X_test))[0]
+    st.write(f"**C-index (qualité du modèle) :** {c_index:.3f}")
+    
+    
+    def score_fn(model, X, y):
+        preds = model.predict(X)
+        return concordance_index_censored(y["event"], y["time"], preds)[0]
+        
+    
+    with st.spinner("Calcul des importances par permutation..."):
+        result = permutation_importance(
+        rsf, X_test, y_test,
+        n_repeats=3,
+        random_state=42,
+        scoring=score_fn)
+        
+    importances = pd.Series(result.importances_mean, index=X.columns).sort_values()
+    st.write("### Importance des variables par permutation (basée sur C-index)")
+    fig1, ax1 = plt.subplots(figsize=(8, 5))
+    importances.plot(kind="barh", ax=ax1)
+    ax1.set_xlabel("Impact moyen sur la performance")
+    ax1.grid(True)
+    st.pyplot(fig1)
 
+    # Visualisation des courbes de survie pour un sous-échantillon
+    st.write("### Visualisation des courbes de survie prédictives")
+
+nb_to_plot = st.slider("Nombre de courbes à afficher", min_value=10, max_value=150, value=50, step=10)
+np.random.seed(42)
+subset_indices = np.random.choice(len(X_test), size=nb_to_plot, replace=False)
+
+surv_fns = rsf.predict_survival_function(X_test.iloc[subset_indices], return_array=False)
+
+common_times = np.linspace(0, 60, 500)
+all_surv_probs = [np.interp(common_times, fn.x, fn.y, left=1.0, right=0.0) for fn in surv_fns]
+mean_surv = np.mean(all_surv_probs, axis=0)
+
+fig2, ax2 = plt.subplots(figsize=(12, 7))
+for fn in surv_fns:
+    ax2.step(fn.x, fn.y, where="post", alpha=0.3, color="gray")
+ax2.plot(common_times, mean_surv, label="Moyenne", color="red", linewidth=2.5)
+ax2.set_title(f"Courbes de survie (RSF) - {nb_to_plot} relais avec moyenne")
+ax2.set_xlabel("Temps (années)")
+ax2.set_ylabel("Probabilité de survie")
+ax2.grid(True)
+ax2.legend()
+st.pyplot(fig2)
+
+
+
+
+
+
+
+    
     rsf = RandomSurvivalForest(n_estimators=50, min_samples_split=10, min_samples_leaf=15, max_features="sqrt", n_jobs=-1, random_state=42)
     with st.spinner("Entraînement du RSF..."):
         rsf.fit(X_train, y_train)
