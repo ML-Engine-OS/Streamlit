@@ -31,16 +31,11 @@ def load_data(uploaded_file=None):
         try:
             df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
             df.columns = df.columns.str.strip().str.lower()
+            return df
+
         except Exception as e:
             st.error(f"Erreur lecture fichier uploadé : {e}")
-            return None
-    else:
-        try:
-            df = pd.read_csv("your_data.csv")  # chemin par défaut
-        except Exception as e:
-            st.error(f"Erreur lecture fichier local : {e}")
-            return None
-     return df
+    
 
 
 
