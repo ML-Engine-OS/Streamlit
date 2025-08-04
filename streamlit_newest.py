@@ -33,28 +33,16 @@ if uploaded_file is not None:
         df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
         st.success(f"Fichier chargé avec succès : {df.shape[0]} lignes")
 
-        # Sidebar : filtres basés sur le DataFrame uploadé
-        st.sidebar.subheader("Filtres")
+       # --- Sidebar : filtres et chargement base ---
+st.sidebar.subheader("Chargement des données")
+symb = st.sidebar.text_input("Symbole", "79540230")
+constructeurs = st.sidebar.multiselect("Constructeurs", ['ANSA', 'CSEE', 'HITA'], default=['ANSA', 'CSEE'])
+n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=10000, value=100)
 
-        # Constructeurs dynamiques selon df
-        if 'lib_constr' in df.columns:
-            constructeurs = st.sidebar.multiselect(
-                "Constructeurs", options=df['lib_constr'].dropna().unique(), default=df['lib_constr'].dropna().unique())
-        else:
-            constructeurs = []
-
-        # Nombre de relais à afficher
-        n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=500, value=100)
-
-        # Filtrage des données
-        if len(constructeurs) > 0:
-            df_filtered = df[df['lib_constr'].isin(constructeurs)]
-        else:
-            df_filtered = df.copy()
-
-        df_filtered = df_filtered.head(n_relais)
-
-        st.dataframe(df_filtered)
+if st.sidebar.button("Charger"):
+    try:
+        df = df.head(n_relais)
+        st.dataframe(df)
 
         if "ACTIF" in df.columns and "censure" in df.columns:
 
