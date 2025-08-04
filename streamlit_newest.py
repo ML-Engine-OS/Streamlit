@@ -55,7 +55,20 @@ if uploaded_file is not None:
         df_filtered = df_filtered.head(n_relais)
 
         st.dataframe(df_filtered)
-        if "ACTIF" in df.columns and "censure" in df.columns:
+
+        # Vérification des colonnes nécessaires
+        if "ACTIF" in df_filtered.columns and "censure" in df_filtered.columns:
+            st.write("Les colonnes 'ACTIF' et 'censure' sont présentes. Analyse possible.")
+            # Ici tu peux lancer tes fonctions d'analyse, courbes, etc.
+        else:
+            st.warning("Les colonnes 'ACTIF' et 'censure' sont requises dans le fichier CSV.")
+
+    except Exception as e:
+        st.error(f"Erreur lors de la lecture du fichier CSV : {e}")
+else:
+    st.info("Veuillez uploader un fichier CSV pour commencer.")
+
+      
 
             # Weibull mixte par constructeur
             with st.expander("Weibull mixte par constructeur"):
