@@ -358,115 +358,98 @@ def weibull_competing_risks():
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-
 def random_survival_forest():
     st.header("Random Survival Forest (RSF)")
     st.write("Entraînement et évaluation du modèle RSF sur un sous-échantillon.")
 
+    df = load_data()
+
     sample_size = st.slider("Taille de l'échantillon", min_value=1000, max_value=50000, value=20000, step=1000)
-    
+
+    if "censure;;" in df.columns:
+        df.rename(columns={"censure;;": "censure"}, inplace=True)
+
     df_rsf = df[
-    df["DTETAT"].notna() &
-    (df["DTETAT"].dt.year >= 1950) &
-    (df["DTETAT"].dt.year <= 2050) &
-    df["censure;;"].isin([0, 1]) ].copy()
-    # Étape 2 : Encodage des variables catégorielles + suppression des NaN
-    subset_df = df_rsf[["lib_constr", "lib_lettre", "AGE_ETAT", "ACTIF", "censure;;"]].dropna()
+        df["DTETAT"].notna() &
+        (df["DTETAT"].dt.year >= 1950) &
+        (df["DTETAT"].dt.year <= 2050) &
+        df["censure"].isin([0, 1])
+    ].copy()
+
+    subset_df = df_rsf[["lib_constr", "lib_lettre", "AGE_ETAT", "ACTIF", "censure"]].dropna()
+
+    if sample_size > len(subset_df):
+        st.warning(f"Échantillon réduit à {len(subset_df)} car la taille demandée dépasse les données disponibles.")
+        sample_size = len(subset_df)
+
     subset_df = subset_df.sample(n=sample_size, random_state=42)
-    # Prepare features and target
+
     X = pd.get_dummies(subset_df[["lib_constr", "lib_lettre", "AGE_ETAT"]], drop_first=True)
-    y = np.array([(bool(e), t) for e, t in zip(subset_df["censure;;"], subset_df["ACTIF"])], dtype=[("event", bool), ("time", float)])
+    y = np.array([(bool(e), t) for e, t in zip(subset_df["censure"], subset_df["ACTIF"])],
+                 dtype=[("event", bool), ("time", float)])
+
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    @st.cache_data
+
     st.write("## Entraînement du modèle RSF")
-    
-    rsf = RandomSurvivalForest(
-    n_estimators=50,
-    min_samples_split=10,
-    min_samples_leaf=15,
-    max_features="sqrt",
-    n_jobs=-1,
-    random_state=42)
-    
-    
+
+    rsf = RandomSurvivalForestModel(
+        n_estimators=50,
+        min_samples_split=10,
+        min_samples_leaf=15,
+        max_features="sqrt",
+        n_jobs=-1,
+        random_state=42
+    )
+
     with st.spinner("Entraînement en cours..."):
-    rsf.fit(X_train, y_train)
+        rsf.fit(X_train, y_train)
     st.success("Modèle entraîné!")
+
     c_index = concordance_index_censored(y_test["event"], y_test["time"], rsf.predict(X_test))[0]
     st.write(f"**C-index (qualité du modèle) :** {c_index:.3f}")
-    
-    
+
     def score_fn(model, X, y):
         preds = model.predict(X)
         return concordance_index_censored(y["event"], y["time"], preds)[0]
-        
-    
+
     with st.spinner("Calcul des importances par permutation..."):
         result = permutation_importance(
-        rsf, X_test, y_test,
-        n_repeats=3,
-        random_state=42,
-        scoring=score_fn)
-        
+            rsf, X_test, y_test,
+            n_repeats=3,
+            random_state=42,
+            scoring=score_fn
+        )
+
     importances = pd.Series(result.importances_mean, index=X.columns).sort_values()
     st.write("### Importance des variables par permutation (basée sur C-index)")
+
     fig1, ax1 = plt.subplots(figsize=(8, 5))
     importances.plot(kind="barh", ax=ax1)
     ax1.set_xlabel("Impact moyen sur la performance")
     ax1.grid(True)
     st.pyplot(fig1)
 
-    # Visualisation des courbes de survie pour un sous-échantillon
     st.write("### Visualisation des courbes de survie prédictives")
+    nb_to_plot = st.slider("Nombre de courbes à afficher", min_value=10, max_value=150, value=50, step=10)
 
-nb_to_plot = st.slider("Nombre de courbes à afficher", min_value=10, max_value=150, value=50, step=10)
-np.random.seed(42)
-subset_indices = np.random.choice(len(X_test), size=nb_to_plot, replace=False)
+    np.random.seed(42)
+    subset_indices = np.random.choice(len(X_test), size=nb_to_plot, replace=False)
+    surv_fns = rsf.predict_survival_function(X_test.iloc[subset_indices], return_array=False)
 
-surv_fns = rsf.predict_survival_function(X_test.iloc[subset_indices], return_array=False)
+    common_times = np.linspace(0, 60, 500)
+    all_surv_probs = [np.interp(common_times, fn.x, fn.y, left=1.0, right=0.0) for fn in surv_fns]
+    mean_surv = np.mean(all_surv_probs, axis=0)
 
-common_times = np.linspace(0, 60, 500)
-all_surv_probs = [np.interp(common_times, fn.x, fn.y, left=1.0, right=0.0) for fn in surv_fns]
-mean_surv = np.mean(all_surv_probs, axis=0)
-
-fig2, ax2 = plt.subplots(figsize=(12, 7))
-for fn in surv_fns:
-    ax2.step(fn.x, fn.y, where="post", alpha=0.3, color="gray")
-ax2.plot(common_times, mean_surv, label="Moyenne", color="red", linewidth=2.5)
-ax2.set_title(f"Courbes de survie (RSF) - {nb_to_plot} relais avec moyenne")
-ax2.set_xlabel("Temps (années)")
-ax2.set_ylabel("Probabilité de survie")
-ax2.grid(True)
-ax2.legend()
-st.pyplot(fig2)
-
-
-
-
-
-
-
-    
-    rsf = RandomSurvivalForest(n_estimators=50, min_samples_split=10, min_samples_leaf=15, max_features="sqrt", n_jobs=-1, random_state=42)
-    with st.spinner("Entraînement du RSF..."):
-        rsf.fit(X_train, y_train)
-    c_index = concordance_index_censored(y_test["event"], y_test["time"], rsf.predict(X_test))[0]
-    st.success(f"C-index RSF: {c_index:.3f}")
-
-    # Plot survival curves
-    st.write("Visualisation des courbes de survie pour un sous-échantillon :")
-    nb_to_plot = min(100, len(X_test))
-    surv_fns = rsf.predict_survival_function(X_test.iloc[:nb_to_plot])
-    
-    fig, ax = plt.subplots(figsize=(12,7))
+    fig2, ax2 = plt.subplots(figsize=(12, 7))
     for fn in surv_fns:
-        ax.step(fn.x, fn.y, where="post", alpha=0.3)
-    ax.set_xlabel("Temps (années)")
-    ax.set_ylabel("Probabilité de survie")
-    ax.set_title("Courbes de survie RSF")
-    ax.grid(True)
-    st.pyplot(fig)
-
+        ax2.step(fn.x, fn.y, where="post", alpha=0.3, color="gray")
+    ax2.plot(common_times, mean_surv, label="Moyenne", color="red", linewidth=2.5)
+    ax2.set_title(f"Courbes de survie (RSF) - {nb_to_plot} relais avec moyenne")
+    ax2.set_xlabel("Temps (années)")
+    ax2.set_ylabel("Probabilité de survie")
+    ax2.grid(True)
+    ax2.legend()
+    st.pyplot(fig2)
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 def gradient_boosting_survival(df):
