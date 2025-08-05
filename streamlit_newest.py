@@ -646,22 +646,24 @@ def lognormal_monte_carlo(df):
                     consommation.append(nb_remplacements)
                 consommation_annuelle.append(consommation)
             
-    conso_array = np.array(consommation_annuelle)
-    moyenne_annuelle = conso_array.mean(axis=0)
-    
-    std_annuelle = conso_array.std(axis=0)
-    years = np.arange(2025, 2025 + N_years)
+            conso_array = np.array(consommation_annuelle)
+            moyenne_annuelle = conso_array.mean(axis=0)
+            std_annuelle = conso_array.std(axis=0)
+            years = np.arange(2025, 2025 + N_years)
 
-    fig, ax = plt.subplots(figsize=(12, 6))
-    ax.plot(years, moyenne_annuelle, label="Consommation moyenne", color="navy")
-    ax.fill_between(years, moyenne_annuelle - std_annuelle, moyenne_annuelle + std_annuelle,
+            fig, ax = plt.subplots(figsize=(12, 6))
+            ax.plot(years, moyenne_annuelle, label="Consommation moyenne", color="navy")
+            ax.fill_between(years, moyenne_annuelle - std_annuelle, moyenne_annuelle + std_annuelle,
                     alpha=0.4, color="red", label="± 1 écart-type")
-    ax.set_xlabel("Année")
-    ax.set_ylabel("Nombre de relais remplacés")
-    ax.set_title("Prévision annuelle de consommation moyenne (Log-Normal Monte Carlo)")
-    ax.legend()
-    ax.grid(True)
-    st.pyplot(fig)
+            ax.set_xlabel("Année")
+            ax.set_ylabel("Nombre de relais remplacés")
+            ax.set_title("Prévision annuelle de consommation moyenne (Log-Normal Monte Carlo)")
+            ax.legend()
+            ax.grid(True)
+            st.pyplot(fig)
+
+    except Exception as e:
+        st.error(f"Erreur dans l'analyse LOGNORAMLE : {e}")
 
     df_violin = pd.DataFrame(conso_array, columns=years)
     fig2, ax2 = plt.subplots(figsize=(12, 6))
