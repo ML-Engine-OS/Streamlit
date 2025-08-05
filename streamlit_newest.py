@@ -150,7 +150,7 @@ def weibull_double_monte_carlo(df):
     st.write(f"Simulation terminée en {time.time() - start:.2f} secondes.")
     if df.empty:
         st.warning("Aucun fichier de données chargé.")
-    return
+        return
 
 
     # --- Résultats statistiques ---
