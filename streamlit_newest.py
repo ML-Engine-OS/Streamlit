@@ -53,35 +53,78 @@ def load_data(uploaded_file):
             return pd.DataFrame()
     return pd.DataFrame()
 
+def detect_column_names(df):
+    """Détecte automatiquement les noms des colonnes importantes"""
+    detected = {}
+    
+    # Colonnes possibles pour la durée
+    duration_candidates = ['ACTIF', 'duree', 'temps', 'time', 'duration']
+    for col in df.columns:
+        if any(candidate.lower() in col.lower() for candidate in duration_candidates):
+            detected['duration'] = col
+            break
+    
+    # Colonnes possibles pour la censure
+    censure_candidates = ['censure', 'event', 'evenement', 'status']
+    for col in df.columns:
+        if any(candidate.lower() in col.lower() for candidate in censure_candidates):
+            detected['censure'] = col
+            break
+    
+    # Colonnes possibles pour la date
+    date_candidates = ['DTETAT', 'date', 'mise_en_service']
+    for col in df.columns:
+        if any(candidate.lower() in col.lower() for candidate in date_candidates):
+            detected['date'] = col
+            break
+            
+    return detected
+
 def validate_dataframe(df):
     """Valide que le DataFrame contient les colonnes nécessaires"""
     if df.empty:
-        return False, "DataFrame vide"
+        return False, "DataFrame vide", {}
     
-    required_columns = ["ACTIF", "censure"]
-    missing_columns = [col for col in required_columns if col not in df.columns]
+    # Détection automatique des colonnes
+    detected_cols = detect_column_names(df)
     
-    if missing_columns:
-        return False, f"Colonnes manquantes : {missing_columns}"
+    missing = []
+    if 'duration' not in detected_cols:
+        missing.append("colonne de durée (ex: ACTIF, duree, temps)")
+    if 'censure' not in detected_cols:
+        missing.append("colonne de censure (ex: censure, event, status)")
     
-    return True, "OK"
+    if missing:
+        available_cols = list(df.columns)
+        return False, f"Colonnes manquantes : {missing}. Colonnes disponibles : {available_cols}", detected_cols
+    
+    return True, "OK", detected_cols
 
-def preprocess_data(df):
-    """Préprocessing des données"""
+def preprocess_data(df, detected_cols):
+    """Préprocessing des données avec colonnes détectées"""
     df_processed = df.copy()
     
-    # Traitement de la colonne DTETAT si elle existe
-    if 'DTETAT' in df_processed.columns:
+    # Standardisation des noms de colonnes
+    if 'duration' in detected_cols:
+        df_processed['ACTIF'] = df_processed[detected_cols['duration']]
+    if 'censure' in detected_cols:
+        df_processed['censure'] = pd.to_numeric(df_processed[detected_cols['censure']], errors='coerce').fillna(0).astype(int)
+    
+    # Traitement de la colonne date si elle existe
+    if 'date' in detected_cols:
         try:
-            df_processed["DTETAT"] = pd.to_datetime(df_processed["DTETAT"], errors="coerce", format="%Y-%m-%d")
+            df_processed["DTETAT"] = pd.to_datetime(df_processed[detected_cols['date']], errors="coerce")
             now = pd.Timestamp.today()
             df_processed["AGE_ETAT"] = (now - df_processed["DTETAT"]).dt.days / 365.25
         except Exception as e:
-            st.warning(f"Erreur traitement DTETAT : {e}")
+            st.warning(f"Erreur traitement date : {e}")
     
-    # Nettoyage de la colonne censure
-    if "censure;;" in df_processed.columns:
-        df_processed["censure"] = pd.to_numeric(df_processed["censure;;"], errors="coerce").fillna(0).astype(int)
+    # Nettoyage des données numériques
+    if 'ACTIF' in df_processed.columns:
+        df_processed['ACTIF'] = pd.to_numeric(df_processed['ACTIF'], errors='coerce')
+        # Suppression des valeurs aberrantes
+        df_processed = df_processed[df_processed['ACTIF'] > 0]
+        df_processed = df_processed[df_processed['ACTIF'] < 1000]  # Limite raisonnable
     
     return df_processed
 
@@ -106,17 +149,31 @@ def weibull_double_monte_carlo(df):
     N_years = st.number_input("Nombre d'années à simuler", min_value=1, max_value=50, value=25)
     
     try:
-        # Génération de données d'exemple pour la démonstration
-        np.random.seed(42)
-        data_failures = np.random.weibull(a=1.5, size=100) * 50
-        data_censured = np.random.weibull(a=1.5, size=20) * 50
+        # Vérification des données
+        if 'ACTIF' not in df.columns or 'censure' not in df.columns:
+            st.error("Colonnes ACTIF et censure requises après préprocessing")
+            return
+            
+        # Données pour l'ajustement Weibull
+        df_clean = df[['ACTIF', 'censure']].dropna()
+        failures = df_clean[df_clean['censure'] == 1]['ACTIF'].values
+        censored = df_clean[df_clean['censure'] == 0]['ACTIF'].values
+        
+        if len(failures) == 0:
+            st.warning("Aucune défaillance observée, utilisation de données simulées")
+            np.random.seed(42)
+            failures = np.random.weibull(a=1.5, size=100) * 50
+            censored = np.random.weibull(a=1.5, size=20) * 50
+        
+        st.write(f"Nombre de défaillances : {len(failures)}")
+        st.write(f"Nombre d'observations censurées : {len(censored)}")
 
         # Fit Weibull 2P
-        wb = Fit_Weibull_2P(failures=data_failures, right_censored=data_censured, show_probability_plot=False)
+        wb = Fit_Weibull_2P(failures=failures, right_censored=censored, show_probability_plot=False)
         fitted_weibull = Weibull_Distribution(alpha=wb.alpha, beta=wb.beta)
 
         # Courbe de survie
-        x = np.linspace(0, 65, 500)
+        x = np.linspace(0, max(max(failures), max(censored) if len(censored) > 0 else max(failures)) * 1.2, 500)
         sf = fitted_weibull.SF(x)
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.plot(x, sf, '--', label="Fitted Weibull 2P", color='blue', linewidth=2)
@@ -129,14 +186,12 @@ def weibull_double_monte_carlo(df):
 
         st.info("Simulation Monte Carlo en cours...")
 
-        # Âges initiaux
-        if 'ACTIF' in df.columns:
-            ages_vivants = df[df['censure'] == 0]['ACTIF'].dropna()
-            if len(ages_vivants) > 0:
-                ages_actuels = ages_vivants.values
-            else:
-                ages_actuels = np.random.uniform(0, 20, size=1000)
+        # Âges initiaux (relais encore en service)
+        ages_vivants = df[df['censure'] == 0]['ACTIF'].dropna()
+        if len(ages_vivants) > 0:
+            ages_actuels = ages_vivants.values
         else:
+            st.warning("Aucun relais en service trouvé, génération d'âges aléatoires")
             ages_actuels = np.random.uniform(0, 20, size=1000)
 
         def generate_remaining_lifetime(current_age):
@@ -155,13 +210,11 @@ def weibull_double_monte_carlo(df):
         # Simulation Monte Carlo
         start_time = time.time()
         consommation_annuelle = []
-        ages_par_annee = []
 
         progress_bar = st.progress(0)
         for sim in range(N_simulations):
             parc = list(parc_initial)
             consommation = []
-            ages_sim = []
 
             for annee in range(N_years):
                 nb_remplacements = 0
@@ -171,18 +224,16 @@ def weibull_double_monte_carlo(df):
                     duree_restante = generate_remaining_lifetime(age)
                     if 0 < duree_restante <= 1:
                         nb_remplacements += 1
-                        nouveau_parc.append(0)
+                        nouveau_parc.append(0)  # Nouveau relais
                     elif duree_restante <= 0:
-                        pass  # composant hors service
+                        pass  # Composant hors service
                     else:
                         nouveau_parc.append(age + 1)
 
                 parc = nouveau_parc
                 consommation.append(nb_remplacements)
-                ages_sim.append(parc.copy())
 
             consommation_annuelle.append(consommation)
-            ages_par_annee.append(ages_sim)
             progress_bar.progress((sim + 1) / N_simulations)
 
         st.success(f"Simulation terminée en {time.time() - start_time:.2f} secondes.")
@@ -205,19 +256,20 @@ def weibull_double_monte_carlo(df):
         ax1.grid(True)
         st.pyplot(fig1)
 
-        # Violin plot
-        df_violin = pd.DataFrame(conso_array, columns=years)
-        fig2, ax2 = plt.subplots(figsize=(12, 6))
-        sns.violinplot(data=df_violin, inner="quartile", palette="coolwarm", cut=0, ax=ax2)
-        ax2.set_title("Distribution annuelle de la consommation des relais")
-        ax2.set_xlabel("Année")
-        ax2.set_ylabel("Relais remplacés")
-        ax2.grid(True)
-        plt.xticks(rotation=45)
-        st.pyplot(fig2)
+        # Tableau de résultats
+        results_df = pd.DataFrame({
+            'Année': years,
+            'Moyenne': np.round(moyenne_annuelle, 1),
+            'Écart-type': np.round(std_annuelle, 1),
+            'Min': conso_array.min(axis=0),
+            'Max': conso_array.max(axis=0)
+        })
+        st.write("### Résultats détaillés")
+        st.dataframe(results_df)
 
     except Exception as e:
         st.error(f"Erreur dans l'analyse Weibull : {e}")
+        st.exception(e)
 
 def weibull_competing_risks(df):
     """Analyse Weibull Competing Risks avec Monte Carlo"""
@@ -229,7 +281,7 @@ def weibull_competing_risks(df):
     try:
         st.info("Simulation Competing Risks en cours...")
 
-        # Simulation des données competing risks
+        # Simulation des données competing risks (car difficile d'identifier les causes dans les données réelles)
         np.random.seed(42)
         n = 5000
         age_mecanique = np.random.weibull(1.5, size=n) * 30
@@ -705,19 +757,104 @@ def main():
             st.error("Impossible de charger les données du fichier.")
             return
             
-        # Validation des données
-        is_valid, message = validate_dataframe(df)
+        # Validation des données avec détection automatique
+        is_valid, message, detected_cols = validate_dataframe(df)
         if not is_valid:
             st.error(f"Données invalides : {message}")
-            return
             
-        # Préprocessing
-        df = preprocess_data(df)
+            # Interface de sélection manuelle des colonnes
+            st.write("### Sélection manuelle des colonnes")
+            st.write("Veuillez sélectionner les colonnes correspondantes dans votre fichier :")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                duration_col = st.selectbox(
+                    "Colonne de durée/temps :",
+                    options=[""] + list(df.columns),
+                    help="Colonne contenant la durée de vie ou le temps d'observation"
+                )
+            
+            with col2:
+                event_col = st.selectbox(
+                    "Colonne d'événement/censure :",
+                    options=[""] + list(df.columns),
+                    help="Colonne indiquant si l'événement s'est produit (1) ou si l'observation est censurée (0)"
+                )
+            
+            if duration_col and event_col:
+                # Mise à jour des colonnes détectées
+                detected_cols = {
+                    'duration': duration_col,
+                    'censure': event_col
+                }
+                
+                # Vérification des données dans les colonnes sélectionnées
+                try:
+                    duration_data = pd.to_numeric(df[duration_col], errors='coerce')
+                    event_data = pd.to_numeric(df[event_col], errors='coerce')
+                    
+                    if duration_data.isna().all():
+                        st.error(f"La colonne '{duration_col}' ne contient pas de données numériques valides.")
+                        return
+                    
+                    if event_data.isna().all():
+                        st.error(f"La colonne '{event_col}' ne contient pas de données numériques valides.")
+                        return
+                    
+                    # Affichage des statistiques sur les colonnes sélectionnées
+                    st.write("#### Aperçu des colonnes sélectionnées :")
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write(f"**{duration_col} (durée) :**")
+                        st.write(f"- Valeurs valides : {duration_data.count()}")
+                        st.write(f"- Moyenne : {duration_data.mean():.2f}")
+                        st.write(f"- Min/Max : {duration_data.min():.2f} / {duration_data.max():.2f}")
+                    
+                    with col2:
+                        st.write(f"**{event_col} (événement) :**")
+                        st.write(f"- Valeurs valides : {event_data.count()}")
+                        event_counts = event_data.value_counts().sort_index()
+                        st.write(f"- Répartition : {dict(event_counts)}")
+                    
+                    if st.button("Valider la sélection et continuer"):
+                        is_valid = True
+                        
+                except Exception as e:
+                    st.error(f"Erreur lors de la validation des colonnes : {e}")
+                    return
+            
+            if not is_valid:
+                return
+            
+        # Préprocessing avec les colonnes détectées
+        df = preprocess_data(df, detected_cols)
+        
+        # Vérification finale après préprocessing
+        if 'ACTIF' not in df.columns or 'censure' not in df.columns:
+            st.error("Erreur lors du préprocessing des données.")
+            return
+        
+        # Nettoyage final des données
+        df_clean = df[['ACTIF', 'censure']].dropna()
+        df_clean = df_clean[df_clean['ACTIF'] > 0]  # Suppression des durées négatives ou nulles
+        
+        if len(df_clean) == 0:
+            st.error("Aucune donnée valide après nettoyage.")
+            return
         
         # Affichage des informations sur les données
         st.sidebar.write("### Informations sur les données")
         st.sidebar.write(f"**Nombre de lignes :** {len(df)}")
+        st.sidebar.write(f"**Données valides :** {len(df_clean)}")
         st.sidebar.write(f"**Colonnes disponibles :** {list(df.columns)}")
+        
+        # Statistiques sur les événements
+        if 'censure' in df.columns:
+            event_counts = df['censure'].value_counts()
+            st.sidebar.write(f"**Événements observés :** {event_counts.get(1, 0)}")
+            st.sidebar.write(f"**Observations censurées :** {event_counts.get(0, 0)}")
         
         # Aperçu des données
         if st.sidebar.checkbox("Afficher aperçu des données"):
@@ -729,21 +866,31 @@ def main():
             numeric_cols = df.select_dtypes(include=[np.number]).columns
             if len(numeric_cols) > 0:
                 st.dataframe(df[numeric_cols].describe())
+            
+            # Histogramme de la durée
+            if 'ACTIF' in df.columns:
+                fig, ax = plt.subplots(figsize=(10, 6))
+                df['ACTIF'].hist(bins=50, ax=ax, alpha=0.7, edgecolor='black')
+                ax.set_xlabel("Durée (ACTIF)")
+                ax.set_ylabel("Fréquence")
+                ax.set_title("Distribution des durées de service")
+                ax.grid(True, alpha=0.3)
+                st.pyplot(fig)
         
         # Routage vers les différents modèles
         try:
             if model_choice == "Weibull Double + Monte Carlo":
-                weibull_double_monte_carlo(df)
+                weibull_double_monte_carlo(df_clean)
             elif model_choice == "Weibull Competing Risks + Monte Carlo":
-                weibull_competing_risks(df)
+                weibull_competing_risks(df_clean)
             elif model_choice == "Random Survival Forest (RSF)":
-                random_survival_forest(df)
+                random_survival_forest(df_clean)
             elif model_choice == "Gradient Boosting Survival Analysis (GBSA)":
-                gradient_boosting_survival(df)
+                gradient_boosting_survival(df_clean)
             elif model_choice == "Cox Proportional Hazards (CoxPH)":
-                cox_ph(df)
+                cox_ph(df_clean)
             elif model_choice == "Log-Normal Monte Carlo Simulation":
-                lognormal_monte_carlo(df)
+                lognormal_monte_carlo(df_clean)
             else:
                 st.warning("Veuillez sélectionner un modèle dans le menu latéral.")
                 
@@ -766,35 +913,53 @@ def main():
         - **Log-Normal Monte Carlo** : Simulation avec distribution log-normale
         
         **📁 Format des données requis :**
-        - Fichier CSV avec colonnes `ACTIF` (durée) et `censure;;` (événement)
-        - Colonnes optionnelles : `DTETAT`, `lib_constr`, `lib_lettre`, etc.
+        - Fichier CSV avec une colonne de durée et une colonne d'événement/censure
+        - L'outil détecte automatiquement les colonnes ou permet une sélection manuelle
+        - Colonnes optionnelles : dates, constructeur, type, etc.
         
         **🚀 Pour commencer :**
         1. Uploadez votre fichier CSV ci-dessus
-        2. Sélectionnez un modèle dans le menu latéral
-        3. Configurez les paramètres et lancez l'analyse
+        2. Sélectionnez les colonnes si nécessaire
+        3. Choisissez un modèle dans le menu latéral
+        4. Configurez les paramètres et lancez l'analyse
         """)
         
-        # Exemple de structure de données
-        st.write("### 📋 Exemple de structure de données attendue")
-        example_data = pd.DataFrame({
-            'ACTIF': [5.2, 8.1, 12.3, 3.7, 15.8],
-            'censure;;': [1, 0, 1, 1, 0],
-            'DTETAT': ['2020-01-15', '2018-03-22', '2015-07-08', '2021-11-03', '2012-05-17'],
-            'lib_constr': ['ALSTOM', 'SIEMENS', 'ALSTOM', 'THALES', 'SIEMENS'],
-            'lib_lettre': ['A', 'B', 'A', 'C', 'B']
-        })
-        st.dataframe(example_data)
+        # Exemple de structures de données acceptées
+        st.write("### 📋 Exemples de structures de données acceptées")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**Format standard :**")
+            example_data1 = pd.DataFrame({
+                'ACTIF': [5.2, 8.1, 12.3, 3.7, 15.8],
+                'censure': [1, 0, 1, 1, 0],
+                'DTETAT': ['2020-01-15', '2018-03-22', '2015-07-08', '2021-11-03', '2012-05-17']
+            })
+            st.dataframe(example_data1)
+        
+        with col2:
+            st.write("**Format alternatif :**")
+            example_data2 = pd.DataFrame({
+                'duree_service': [5.2, 8.1, 12.3, 3.7, 15.8],
+                'evenement': [1, 0, 1, 1, 0],
+                'constructeur': ['ALSTOM', 'SIEMENS', 'ALSTOM', 'THALES', 'SIEMENS']
+            })
+            st.dataframe(example_data2)
         
         st.write("""
         **📝 Description des colonnes :**
-        - `ACTIF` : Durée de service (années)
-        - `censure;;` : Indicateur d'événement (1 = panne, 0 = censuré)
-        - `DTETAT` : Date de mise en service (optionnel)
-        - `lib_constr` : Constructeur (optionnel)
-        - `lib_lettre` : Type/catégorie (optionnel)
+        - **Colonne de durée** : Temps de service, âge, durée d'observation (valeurs numériques positives)
+        - **Colonne d'événement** : Indicateur de défaillance (1 = panne observée, 0 = censuré/toujours en service)
+        - **Colonnes optionnelles** : Date de mise en service, constructeur, type, localisation, etc.
+        
+        **⚠️ Notes importantes :**
+        - Les valeurs manquantes seront automatiquement supprimées
+        - Les durées doivent être numériques et positives
+        - L'événement doit être binaire (0 ou 1)
+        - L'outil s'adapte automatiquement aux noms de colonnes courants
         """)
 
 # Exécution de l'application
 if __name__ == "__main__":
-    main()      
+    main()
