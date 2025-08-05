@@ -625,16 +625,17 @@ def lognormal_monte_carlo(df):
 
         # Simulation Monte Carlo
         consommation_annuelle = []
-        
+
         with st.spinner("Simulation Monte Carlo Log-Normal en cours..."):
+            progress_bar = st.progress(0)
             for sim in range(N_simulations):
                 parc = list(parc_initial)
                 consommation = []
-                
+
                 for annee in range(N_years):
                     nb_remplacements = 0
                     nouveau_parc = []
-                    
+
                     for age in parc:
                         t_reste = generate_lifetime_lognormal(age)
                         if t_reste <= 2:
@@ -642,63 +643,158 @@ def lognormal_monte_carlo(df):
                             nouveau_parc.append(0)
                         else:
                             nouveau_parc.append(age + 1)
+                    
                     parc = nouveau_parc
                     consommation.append(nb_remplacements)
+                
                 consommation_annuelle.append(consommation)
-            
-            conso_array = np.array(consommation_annuelle)
-            moyenne_annuelle = conso_array.mean(axis=0)
-            std_annuelle = conso_array.std(axis=0)
-            years = np.arange(2025, 2025 + N_years)
+                progress_bar.progress((sim + 1) / N_simulations)
 
-            fig, ax = plt.subplots(figsize=(12, 6))
-            ax.plot(years, moyenne_annuelle, label="Consommation moyenne", color="navy")
-            ax.fill_between(years, moyenne_annuelle - std_annuelle, moyenne_annuelle + std_annuelle,
-                    alpha=0.4, color="red", label="± 1 écart-type")
-            ax.set_xlabel("Année")
-            ax.set_ylabel("Nombre de relais remplacés")
-            ax.set_title("Prévision annuelle de consommation moyenne (Log-Normal Monte Carlo)")
-            ax.legend()
-            ax.grid(True)
-            st.pyplot(fig)
+        # Résultats
+        conso_array = np.array(consommation_annuelle)
+        moyenne_annuelle = conso_array.mean(axis=0)
+        std_annuelle = conso_array.std(axis=0)
+        years = np.arange(2025, 2025 + N_years)
+
+        # Graphique principal
+        fig, ax = plt.subplots(figsize=(12, 6))
+        ax.plot(years, moyenne_annuelle, label="Consommation moyenne", color="navy", linewidth=2)
+        ax.fill_between(years, moyenne_annuelle - std_annuelle, moyenne_annuelle + std_annuelle,
+                        alpha=0.4, color="red", label="± 1 écart-type")
+        ax.set_xlabel("Année")
+        ax.set_ylabel("Nombre de relais remplacés")
+        ax.set_title("Prévision annuelle de consommation moyenne (Log-Normal Monte Carlo)")
+        ax.legend()
+        ax.grid(True)
+        st.pyplot(fig)
+
+        # Violin plot
+        df_violin = pd.DataFrame(conso_array, columns=years)
+        fig2, ax2 = plt.subplots(figsize=(12, 6))
+        sns.violinplot(data=df_violin, inner="quartile", cut=0, ax=ax2)
+        ax2.set_title("Distribution annuelle de la consommation des relais")
+        ax2.set_xlabel("Année")
+        ax2.set_ylabel("Relais remplacés")
+        ax2.grid(True)
+        plt.setp(ax2.get_xticklabels(), rotation=45)
+        st.pyplot(fig2)
+
+        # Statistiques récapitulatives
+        st.write("### Statistiques récapitulatives")
+        stats_df = pd.DataFrame({
+            'Année': years,
+            'Moyenne': moyenne_annuelle,
+            'Écart-type': std_annuelle,
+            'Min': conso_array.min(axis=0),
+            'Max': conso_array.max(axis=0)
+        })
+        st.dataframe(stats_df)
 
     except Exception as e:
-        st.error(f"Erreur dans l'analyse LOGNORAMLE : {e}")
+        st.error(f"Erreur dans l'analyse Log-Normal : {e}")
 
-    df_violin = pd.DataFrame(conso_array, columns=years)
-    fig2, ax2 = plt.subplots(figsize=(12, 6))
-    sns.violinplot(data=df_violin, inner="quartile", cut=0, ax=ax2)
-    ax2.set_title("Distribution annuelle de la consommation des relais")
-    ax2.set_xlabel("Année")
-    ax2.set_ylabel("Relais remplacés")
-    ax2.grid(True)
-    plt.setp(ax2.get_xticklabels(), rotation=45)
-    st.pyplot(fig2)
-
-#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-if uploaded_file is not None:
-    df = load_data(uploaded_file)
-    if model_choice == "Weibull Double + Monte Carlo":
-        weibull_double_monte_carlo(df)
-    elif model_choice == "Weibull Competing Risks + Monte Carlo":
-        weibull_competing_risks(df)
-    elif model_choice == "Random Survival Forest (RSF)":
-        random_survival_forest(df)
-    elif model_choice == "Gradient Boosting Survival Analysis (GBSA)":
-        gradient_boosting_survival(df)
-    elif model_choice == "Cox Proportional Hazards (CoxPH)":
-        cox_ph(df)
-    elif model_choice == "Log-Normal Monte Carlo Simulation":
-        lognormal_monte_carlo(df)
-    else:
-        st.warning("Sélectionnez un modèle dans le menu latéral.")
-
-    # Puis ici tu fais le routage vers les fonctions
-else:
-    st.warning("Veuillez uploader un fichier CSV pour démarrer l'analyse.")
-
-
-# Main app logic
-
+# LOGIQUE PRINCIPALE
+def main():
+    """Fonction principale de l'application"""
+    
+    if uploaded_file is not None:
+        # Chargement des données
+        df = load_data(uploaded_file)
         
+        if df.empty:
+            st.error("Impossible de charger les données du fichier.")
+            return
+            
+        # Validation des données
+        is_valid, message = validate_dataframe(df)
+        if not is_valid:
+            st.error(f"Données invalides : {message}")
+            return
+            
+        # Préprocessing
+        df = preprocess_data(df)
+        
+        # Affichage des informations sur les données
+        st.sidebar.write("### Informations sur les données")
+        st.sidebar.write(f"**Nombre de lignes :** {len(df)}")
+        st.sidebar.write(f"**Colonnes disponibles :** {list(df.columns)}")
+        
+        # Aperçu des données
+        if st.sidebar.checkbox("Afficher aperçu des données"):
+            st.write("### Aperçu des données")
+            st.dataframe(df.head(10))
+            
+            # Statistiques descriptives
+            st.write("### Statistiques descriptives")
+            numeric_cols = df.select_dtypes(include=[np.number]).columns
+            if len(numeric_cols) > 0:
+                st.dataframe(df[numeric_cols].describe())
+        
+        # Routage vers les différents modèles
+        try:
+            if model_choice == "Weibull Double + Monte Carlo":
+                weibull_double_monte_carlo(df)
+            elif model_choice == "Weibull Competing Risks + Monte Carlo":
+                weibull_competing_risks(df)
+            elif model_choice == "Random Survival Forest (RSF)":
+                random_survival_forest(df)
+            elif model_choice == "Gradient Boosting Survival Analysis (GBSA)":
+                gradient_boosting_survival(df)
+            elif model_choice == "Cox Proportional Hazards (CoxPH)":
+                cox_ph(df)
+            elif model_choice == "Log-Normal Monte Carlo Simulation":
+                lognormal_monte_carlo(df)
+            else:
+                st.warning("Veuillez sélectionner un modèle dans le menu latéral.")
+                
+        except Exception as e:
+            st.error(f"Erreur lors de l'exécution du modèle {model_choice} : {e}")
+            st.exception(e)  # Pour le debugging
+            
+    else:
+        # Page d'accueil sans données
+        st.info("### 👋 Bienvenue dans l'outil d'analyse de survie des relais ferroviaires")
+        st.write("""
+        Cet outil vous permet d'effectuer différents types d'analyses de survie :
+        
+        **📊 Modèles disponibles :**
+        - **Weibull Double + Monte Carlo** : Analyse paramétrique avec simulation
+        - **Weibull Competing Risks** : Modélisation des risques concurrents
+        - **Random Survival Forest** : Méthode d'ensemble non-paramétrique
+        - **Gradient Boosting Survival** : Algorithme de boosting pour la survie
+        - **Cox Proportional Hazards** : Modèle de régression de Cox
+        - **Log-Normal Monte Carlo** : Simulation avec distribution log-normale
+        
+        **📁 Format des données requis :**
+        - Fichier CSV avec colonnes `ACTIF` (durée) et `censure;;` (événement)
+        - Colonnes optionnelles : `DTETAT`, `lib_constr`, `lib_lettre`, etc.
+        
+        **🚀 Pour commencer :**
+        1. Uploadez votre fichier CSV ci-dessus
+        2. Sélectionnez un modèle dans le menu latéral
+        3. Configurez les paramètres et lancez l'analyse
+        """)
+        
+        # Exemple de structure de données
+        st.write("### 📋 Exemple de structure de données attendue")
+        example_data = pd.DataFrame({
+            'ACTIF': [5.2, 8.1, 12.3, 3.7, 15.8],
+            'censure;;': [1, 0, 1, 1, 0],
+            'DTETAT': ['2020-01-15', '2018-03-22', '2015-07-08', '2021-11-03', '2012-05-17'],
+            'lib_constr': ['ALSTOM', 'SIEMENS', 'ALSTOM', 'THALES', 'SIEMENS'],
+            'lib_lettre': ['A', 'B', 'A', 'C', 'B']
+        })
+        st.dataframe(example_data)
+        
+        st.write("""
+        **📝 Description des colonnes :**
+        - `ACTIF` : Durée de service (années)
+        - `censure;;` : Indicateur d'événement (1 = panne, 0 = censuré)
+        - `DTETAT` : Date de mise en service (optionnel)
+        - `lib_constr` : Constructeur (optionnel)
+        - `lib_lettre` : Type/catégorie (optionnel)
+        """)
+
+# Exécution de l'application
+if __name__ == "__main__":
+    main()      
