@@ -116,7 +116,7 @@ def weibull_double_monte_carlo(df):
     wb = Fit_Weibull_2P(failures=failures, right_censored=censored, show_probability_plot=False)
     fitted_weibull = Weibull_Distribution(alpha=wb.alpha, beta=wb.beta)
 
-   def generate_remaining_lifetime(current_age):
+    def generate_remaining_lifetime(current_age):
        u = random.random()
        inside_log = u * math.exp(- (current_age / eta) ** beta)
        if inside_log <= 0:
