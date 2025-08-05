@@ -14,7 +14,7 @@ from sksurv.linear_model import CoxPHSurvivalAnalysis
 from sksurv.util import Surv
 from sksurv.metrics import concordance_index_censored
 from sksurv.preprocessing import OneHotEncoder
-from sksurv.gradient_boosting import GradientBoostingSurvivalAnalysis
+#from sksurv.gradient_boosting import GradientBoostingSurvivalAnalysis
 from sklearn.inspection import permutation_importance
 
 
