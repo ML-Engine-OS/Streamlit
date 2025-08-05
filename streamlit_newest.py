@@ -8,6 +8,15 @@ import seaborn as sns
 import random
 import math
 import time
+from sklearn.model_selection import train_test_split
+from sksurv.ensemble import RandomSurvivalForest as RandomSurvivalForestModel
+from sksurv.linear_model import CoxPHSurvivalAnalysis
+from sksurv.util import Surv
+from sksurv.metrics import concordance_index_censored
+from sksurv.preprocessing import OneHotEncoder
+from sksurv.gradient_boosting import GradientBoostingSurvivalAnalysis
+from sklearn.inspection import permutation_importance
+
 
 from scipy.optimize import minimize
 from scipy.stats import weibull_min, genextreme
@@ -33,6 +42,10 @@ def load_data(uploaded_file=None):
     df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
     return df
 uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
+if uploaded_file is not None:
+    df = load_data(uploaded_file)
+else:
+    df = pd.DataFrame()
 
 
         
@@ -91,14 +104,13 @@ def weibull_double_monte_carlo(df):
     fitted_weibull = Weibull_Distribution(alpha=wb.alpha, beta=wb.beta)
 
     def generate_remaining_lifetime(current_age):
-       u = random.random()
-       inside_log = u * math.exp(- (current_age / eta) ** beta)
-       if inside_log <= 0:
-           return eta  # Valeur par défaut en cas de problème numérique
-       durée_totale = eta * (-math.log(inside_log)) ** (1 / beta)
-       T = durée_totale - current_age
-
-       return T 
+        u = random.random()
+        inside_log = u * math.exp(- (current_age / wb.alpha) ** wb.beta)
+        if inside_log <= 0:
+            return wb.alpha
+        durée_totale = wb.alpha * (-math.log(inside_log)) ** (1 / wb.beta)
+        return durée_totale - current_age
+ 
 
     parc_initial = list(ages_actuels)
     st.write(f"Nombre initial de relais : {len(parc_initial)}")
@@ -136,6 +148,10 @@ def weibull_double_monte_carlo(df):
         ages_par_annee.append(ages_sim)
 
     st.write(f"Simulation terminée en {time.time() - start:.2f} secondes.")
+    if df.empty:
+    st.warning("Aucun fichier de données chargé.")
+    return
+
 
     # --- Résultats statistiques ---
     conso_array = np.array(consommation_annuelle)
@@ -327,6 +343,9 @@ def weibull_competing_risks():
         plt.tight_layout()
         st.pyplot(fig_hist)
 
+    if df.empty:
+    st.warning("Aucun fichier de données chargé.")
+    return
 
 
 
@@ -442,6 +461,8 @@ def random_survival_forest(df):
     ax2.grid(True)
     ax2.legend()
     st.pyplot(fig2)
+
+
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 def gradient_boosting_survival(df):
@@ -583,22 +604,28 @@ def lognormal_monte_carlo(df):
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
+if uploaded_file is not None:
+    df = load_data(uploaded_file)
+    if model_choice == "Weibull Double + Monte Carlo":
+        weibull_double_monte_carlo(df)
+    elif model_choice == "Weibull Competing Risks + Monte Carlo":
+        weibull_competing_risks(df)
+    elif model_choice == "Random Survival Forest (RSF)":
+        random_survival_forest(df)
+    elif model_choice == "Gradient Boosting Survival Analysis (GBSA)":
+        gradient_boosting_survival(df)
+    elif model_choice == "Cox Proportional Hazards (CoxPH)":
+        cox_ph(df)
+    elif model_choice == "Log-Normal Monte Carlo Simulation":
+        lognormal_monte_carlo(df)
+    else:
+        st.warning("Sélectionnez un modèle dans le menu latéral.")
+
+    # Puis ici tu fais le routage vers les fonctions
+else:
+    st.warning("Veuillez uploader un fichier CSV pour démarrer l'analyse.")
 
 
 # Main app logic
-if model_choice == "Weibull Double + Monte Carlo":
-    weibull_double_monte_carlo(df)
-elif model_choice == "Weibull Competing Risks + Monte Carlo":
-    weibull_competing_risks(df)
-elif model_choice == "Random Survival Forest (RSF)":
-    random_survival_forest(df)
-elif model_choice == "Gradient Boosting Survival Analysis (GBSA)":
-    gradient_boosting_survival(df)
-elif model_choice == "Cox Proportional Hazards (CoxPH)":
-    cox_ph(df)
-elif model_choice == "Log-Normal Monte Carlo Simulation":
-    lognormal_monte_carlo(df)
-else:
-    st.warning("Sélectionnez un modèle dans le menu latéral.")
 
         
