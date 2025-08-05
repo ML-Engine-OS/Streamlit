@@ -58,7 +58,7 @@ def validate_dataframe(df):
     if df.empty:
         return False, "DataFrame vide"
     
-    required_columns = ['ACTIF', 'censure;;']
+    required_columns = ["ACTIF", "censure"]
     missing_columns = [col for col in required_columns if col not in df.columns]
     
     if missing_columns:
