@@ -344,8 +344,8 @@ def weibull_competing_risks():
         st.pyplot(fig_hist)
 
     if df.empty:
-    st.warning("Aucun fichier de données chargé.")
-    return
+        st.warning("Aucun fichier de données chargé.")
+        return
 
 
 
