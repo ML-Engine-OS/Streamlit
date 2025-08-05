@@ -30,37 +30,11 @@ st.title("Tableau de bord  : Analyse prédictive de la survie des relais de sign
 
 @st.cache_data
 def load_data(uploaded_file=None):
-    #if uploaded_file is not None:
-        #try:
-            df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
-            return df
-       # except Exception as e:
-            #st.error(f"Erreur lecture fichier uploadé : {e}")
-            #return None
-    #return None
-
-
+    df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
+    return df
 uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
 
-if uploaded_file is not None:
-    try:
-        df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
-        if 'DTETAT' in df.columns:
-            df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
-            now = pd.Timestamp.today()
-            df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
-            df["censure;;"] = pd.to_numeric(df["censure;;"], errors="coerce").fillna(0).astype(int)
-            st.success(f"Data chargée avec {df.shape[0]} lignes")
-            st.dataframe(df.head())
-            n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=10000, value=100)
-            
-        else:
-            st.error("La colonne 'DTETAT' est absente dans le fichier.")
-        
-    except Exception as e:
-        st.error(f"Erreur lecture fichier uploadé : {e}")
-else:
-    st.warning("Aucun fichier chargé.")
+
         
         
 
@@ -358,9 +332,27 @@ def weibull_competing_risks():
 
 #----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-def random_survival_forest():
+def random_survival_forest(df):
     st.header("Random Survival Forest (RSF)")
     st.write("Entraînement et évaluation du modèle RSF sur un sous-échantillon.")
+
+    if uploaded_file is not None:
+        try:
+            df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
+            if 'DTETAT' in df.columns:
+                df["DTETAT"] = pd.to_datetime(df["DTETAT"], errors="coerce", format="%Y-%m-%d", exact=False)
+                now = pd.Timestamp.today()
+                df["AGE_ETAT"] = (now - df["DTETAT"]).dt.days / 365.25
+                df["censure;;"] = pd.to_numeric(df["censure;;"], errors="coerce").fillna(0).astype(int)
+                st.success(f"Data chargée avec {df.shape[0]} lignes")
+                st.dataframe(df.head())
+                n_relais = st.sidebar.slider("Nombre de relais à afficher", min_value=10, max_value=10000, value=100)
+            else:
+                st.error("La colonne 'DTETAT' est absente dans le fichier.")
+        except Exception as e:
+            st.error(f"Erreur lecture fichier uploadé : {e}")
+    else:
+        st.warning("Aucun fichier chargé.")
 
     df = load_data()
 
