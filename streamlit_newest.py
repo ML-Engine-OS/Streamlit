@@ -627,24 +627,24 @@ def lognormal_monte_carlo(df):
         consommation_annuelle = []
         
         with st.spinner("Simulation Monte Carlo Log-Normal en cours..."):
-        for sim in range(N_simulations):
-            parc = list(parc_initial)
-            consommation = []
-
-            for annee in range(N_years):
-                nb_remplacements = 0
-                nouveau_parc = []
-
-                for age in parc:
-                    t_reste = generate_lifetime_lognormal(age)
-                    if t_reste <= 2:
-                        nb_remplacements += 1
-                        nouveau_parc.append(0)
-                    else:
-                        nouveau_parc.append(age + 1)
-                parc = nouveau_parc
-                consommation.append(nb_remplacements)
-            consommation_annuelle.append(consommation)
+            for sim in range(N_simulations):
+                parc = list(parc_initial)
+                consommation = []
+                
+                for annee in range(N_years):
+                    nb_remplacements = 0
+                    nouveau_parc = []
+                    
+                    for age in parc:
+                        t_reste = generate_lifetime_lognormal(age)
+                        if t_reste <= 2:
+                            nb_remplacements += 1
+                            nouveau_parc.append(0)
+                        else:
+                            nouveau_parc.append(age + 1)
+                    parc = nouveau_parc
+                    consommation.append(nb_remplacements)
+                consommation_annuelle.append(consommation)
             
     conso_array = np.array(consommation_annuelle)
     moyenne_annuelle = conso_array.mean(axis=0)
