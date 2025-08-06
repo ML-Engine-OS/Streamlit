@@ -57,6 +57,7 @@ def load_data(uploaded_file):
             st.error(f"Erreur lors du chargement : {e}")
             return pd.DataFrame()
     return pd.DataFrame()
+    
 
 def detect_column_names(df):
     """Détecte automatiquement les noms des colonnes importantes"""
@@ -82,8 +83,10 @@ def detect_column_names(df):
         if any(candidate.lower() in col.lower() for candidate in date_candidates):
             detected['date'] = col
             break
-            
     return detected
+
+
+
 
 def validate_dataframe(df):
     """Valide que le DataFrame contient les colonnes nécessaires"""
