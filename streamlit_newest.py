@@ -928,7 +928,7 @@ def main():
         - L'outil détecte automatiquement les colonnes ou permet une sélection manuelle
         - Colonnes optionnelles : dates, constructeur, type, etc.
     
-
+ """)
 # Exécution de l'application
 if __name__ == "__main__":
     main()
