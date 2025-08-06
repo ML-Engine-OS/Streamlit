@@ -41,18 +41,6 @@ warnings.filterwarnings("ignore")
 st.set_page_config(layout="wide", page_title="Survie ferroviaire avancée")
 st.title("Tableau de bord : Analyse prédictive de la survie des relais de signalisation")
 
-#@st.cache_data
-#def load_data(uploaded_file):
-    #"""Charge les données depuis un fichier uploadé"""
-    #if uploaded_file is not None:
-        #try:
-            #df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', on_bad_lines='skip')
-            #return df
-       # except Exception as e:
-            #st.error(f"Erreur lors du chargement : {e}")
-            #return pd.DataFrame()
-   # return pd.DataFrame()
-
 @st.cache_data
 def load_data(uploaded_file):
     """Charge les données depuis un fichier uploadé"""
@@ -137,10 +125,6 @@ def preprocess_data(df, detected_cols):
             st.warning(f"Erreur traitement date : {e}")
     
     return df_processed
-
-# Interface utilisateur
-uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
-
 
 # Interface utilisateur
 uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
@@ -850,12 +834,25 @@ def main():
             st.error("Erreur lors du préprocessing des données.")
             return
         
-        # Nettoyage final des données
-        df_clean = df[['ACTIF', 'censure']].dropna()
-        df_clean = df_clean[df_clean['ACTIF'] > 0]  # Suppression des durées négatives ou nulles
+        # Nettoyage minimal - seulement les valeurs manquantes pour les colonnes essentielles
+        df_clean = df.dropna(subset=['ACTIF', 'censure'])
+        
+        # Affichage des informations de debug
+        st.write(f"**Debug info:**")
+        st.write(f"- Données originales : {len(df)} lignes")
+        st.write(f"- Après suppression des valeurs manquantes : {len(df_clean)} lignes")
+        
+        if 'ACTIF' in df_clean.columns:
+            actif_stats = df_clean['ACTIF'].describe()
+            st.write(f"- Statistiques ACTIF : min={actif_stats['min']}, max={actif_stats['max']}, moyenne={actif_stats['mean']:.2f}")
+        
+        if 'censure' in df_clean.columns:
+            censure_counts = df_clean['censure'].value_counts()
+            st.write(f"- Répartition censure : {dict(censure_counts)}")
         
         if len(df_clean) == 0:
-            st.error("Aucune donnée valide après nettoyage.")
+            st.error("Aucune donnée valide après suppression des valeurs manquantes.")
+            st.write("Vérifiez que vos colonnes contiennent des données numériques valides.")
             return
         
         # Affichage des informations sur les données
@@ -930,49 +927,7 @@ def main():
         - Fichier CSV avec une colonne de durée et une colonne d'événement/censure
         - L'outil détecte automatiquement les colonnes ou permet une sélection manuelle
         - Colonnes optionnelles : dates, constructeur, type, etc.
-        
-        **🚀 Pour commencer :**
-        1. Uploadez votre fichier CSV ci-dessus
-        2. Sélectionnez les colonnes si nécessaire
-        3. Choisissez un modèle dans le menu latéral
-        4. Configurez les paramètres et lancez l'analyse
-        """)
-        
-        # Exemple de structures de données acceptées
-        st.write("### 📋 Exemples de structures de données acceptées")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.write("**Format standard :**")
-            example_data1 = pd.DataFrame({
-                'ACTIF': [5.2, 8.1, 12.3, 3.7, 15.8],
-                'censure': [1, 0, 1, 1, 0],
-                'DTETAT': ['2020-01-15', '2018-03-22', '2015-07-08', '2021-11-03', '2012-05-17']
-            })
-            st.dataframe(example_data1)
-        
-        with col2:
-            st.write("**Format alternatif :**")
-            example_data2 = pd.DataFrame({
-                'duree_service': [5.2, 8.1, 12.3, 3.7, 15.8],
-                'evenement': [1, 0, 1, 1, 0],
-                'constructeur': ['ALSTOM', 'SIEMENS', 'ALSTOM', 'THALES', 'SIEMENS']
-            })
-            st.dataframe(example_data2)
-        
-        st.write("""
-        **📝 Description des colonnes :**
-        - **Colonne de durée** : Temps de service, âge, durée d'observation (valeurs numériques positives)
-        - **Colonne d'événement** : Indicateur de défaillance (1 = panne observée, 0 = censuré/toujours en service)
-        - **Colonnes optionnelles** : Date de mise en service, constructeur, type, localisation, etc.
-        
-        **⚠️ Notes importantes :**
-        - Les valeurs manquantes seront automatiquement supprimées
-        - Les durées doivent être numériques et positives
-        - L'événement doit être binaire (0 ou 1)
-        - L'outil s'adapte automatiquement aux noms de colonnes courants
-        """)
+    
 
 # Exécution de l'application
 if __name__ == "__main__":
