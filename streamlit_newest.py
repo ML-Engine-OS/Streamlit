@@ -41,18 +41,105 @@ warnings.filterwarnings("ignore")
 st.set_page_config(layout="wide", page_title="Survie ferroviaire avancée")
 st.title("Tableau de bord : Analyse prédictive de la survie des relais de signalisation")
 
+#@st.cache_data
+#def load_data(uploaded_file):
+    #"""Charge les données depuis un fichier uploadé"""
+    #if uploaded_file is not None:
+        #try:
+            #df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', on_bad_lines='skip')
+            #return df
+       # except Exception as e:
+            #st.error(f"Erreur lors du chargement : {e}")
+            #return pd.DataFrame()
+   # return pd.DataFrame()
+
 @st.cache_data
 def load_data(uploaded_file):
     """Charge les données depuis un fichier uploadé"""
     if uploaded_file is not None:
         try:
+            # Essaie différents séparateurs
             df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', on_bad_lines='skip')
+            if len(df.columns) == 1:
+                # Si une seule colonne, essayer avec virgule
+                uploaded_file.seek(0)
+                df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
             return df
         except Exception as e:
             st.error(f"Erreur lors du chargement : {e}")
             return pd.DataFrame()
     return pd.DataFrame()
 
+def detect_column_names(df):
+    """Détecte automatiquement les noms des colonnes importantes"""
+    detected = {}
+    
+    # Colonnes possibles pour la durée
+    duration_candidates = ['ACTIF', 'duree', 'temps', 'time', 'duration']
+    for col in df.columns:
+        if any(candidate.lower() in col.lower() for candidate in duration_candidates):
+            detected['duration'] = col
+            break
+    
+    # Colonnes possibles pour la censure
+    censure_candidates = ['censure', 'event', 'evenement', 'status']
+    for col in df.columns:
+        if any(candidate.lower() in col.lower() for candidate in censure_candidates):
+            detected['censure'] = col
+            break
+    
+    # Colonnes possibles pour la date
+    date_candidates = ['DTETAT', 'date', 'mise_en_service']
+    for col in df.columns:
+        if any(candidate.lower() in col.lower() for candidate in date_candidates):
+            detected['date'] = col
+            break
+            
+    return detected
+
+def validate_dataframe(df):
+    """Valide que le DataFrame contient les colonnes nécessaires"""
+    if df.empty:
+        return False, "DataFrame vide", {}
+    
+    # Détection automatique des colonnes
+    detected_cols = detect_column_names(df)
+    
+    missing = []
+    if 'duration' not in detected_cols:
+        missing.append("colonne de durée (ex: ACTIF, duree, temps)")
+    if 'censure' not in detected_cols:
+        missing.append("colonne de censure (ex: censure, event, status)")
+    
+    if missing:
+        available_cols = list(df.columns)
+        return False, f"Colonnes manquantes : {missing}. Colonnes disponibles : {available_cols}", detected_cols
+    
+    return True, "OK", detected_cols
+
+def preprocess_data(df, detected_cols):
+    """Préprocessing des données avec colonnes détectées"""
+    df_processed = df.copy()
+    
+    # Standardisation des noms de colonnes
+    if 'duration' in detected_cols:
+        df_processed['ACTIF'] = pd.to_numeric(df_processed[detected_cols['duration']], errors='coerce')
+    if 'censure' in detected_cols:
+        df_processed['censure'] = pd.to_numeric(df_processed[detected_cols['censure']], errors='coerce').fillna(0).astype(int)
+    
+    # Traitement de la colonne date si elle existe
+    if 'date' in detected_cols:
+        try:
+            df_processed["DTETAT"] = pd.to_datetime(df_processed[detected_cols['date']], errors="coerce")
+            now = pd.Timestamp.today()
+            df_processed["AGE_ETAT"] = (now - df_processed["DTETAT"]).dt.days / 365.25
+        except Exception as e:
+            st.warning(f"Erreur traitement date : {e}")
+    
+    return df_processed
+
+# Interface utilisateur
+uploaded_file = st.file_uploader("Uploader votre fichier CSV", type=["csv"])
 
 
 # Interface utilisateur
