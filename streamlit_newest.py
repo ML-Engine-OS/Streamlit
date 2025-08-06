@@ -46,7 +46,7 @@ def load_data(uploaded_file):
     """Charge les données depuis un fichier uploadé"""
     if uploaded_file is not None:
         try:
-            df = pd.read_csv(uploaded_file, sep=',', encoding='utf-8', on_bad_lines='skip')
+            df = pd.read_csv(uploaded_file, sep=';', encoding='utf-8', on_bad_lines='skip')
             return df
         except Exception as e:
             st.error(f"Erreur lors du chargement : {e}")
