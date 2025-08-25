@@ -11,7 +11,25 @@ from lifelines import KaplanMeierFitter, WeibullFitter
 from lifelines.statistics import logrank_test
 import warnings
 warnings.filterwarnings('ignore')
+import subprocess
+import sys
+import os
 
+def install_requirements():
+    requirements_file = os.path.join(os.path.dirname(__file__), 'requirements.txt')
+    
+    if not os.path.exists(requirements_file):
+        print("❌ Fichier requirements.txt non trouvé!")
+        return False
+    
+    # Installation automatique si nécessaire
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', requirements_file])
+    return True
+
+# Au début de votre main()
+if __name__ == "__main__":
+    install_requirements()
+    # Puis vos imports habituels...
 # Configuration de la page
 st.set_page_config(
     page_title="Dashboard Fiabilité des Relais",
