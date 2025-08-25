@@ -10,3 +10,4 @@ scikit-survival
 seaborn
 scikit-learn
 tensorflow
+plotly
