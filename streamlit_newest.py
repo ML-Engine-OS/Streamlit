@@ -259,8 +259,11 @@ from utils.relais_data_loader import RelaisDataLoader
 # Modification de la section sidebar
 def main():
     # ... (début inchangé)
+    # Titre principal
+    st.markdown('<h1 class="main-header">⚡ Dashboard Analyse de Fiabilité des Relais</h1>', 
+                unsafe_allow_html=True)
     
-    elif data_source == "Base PostgreSQL":
+    if data_source == "Base PostgreSQL":
         with st.sidebar.expander("🔧 Configuration Base de Données", expanded=True):
             try:
                 # Initialisation sécurisée
